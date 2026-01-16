@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Meta descripción base (será reemplazada dinámicamente) -->
     <meta name="description" content="Papelería Lumen Mayoreo. Encuentra todo para tu oficina y escuela al mejor precio.">
     <title>Papelería Lumen Mayoreo</title>
     
@@ -15,12 +14,12 @@
                 extend: {
                     colors: {
                         brand: {
-                            500: '#0056b3', // Azul Lumen aproximado
+                            500: '#0056b3',
                             600: '#004494',
                             100: '#e6f0ff'
                         },
                         accent: {
-                            500: '#fct312', // Amarillo
+                            500: '#fct312',
                         }
                     }
                 }
@@ -46,18 +45,13 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // Agregamos useMemo aquí
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- URL DEL SCRIPT DE GOOGLE ---
+        // --- CONFIGURACIÓN ---
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPnLM6PF2NQxC6ulguExbM5IStTtV3rFfqS1TML989o2fDSNP4iv5PT72H5GqBq4FvXw/exec"; 
-        
-        // --- CONFIGURACIÓN DE IMÁGENES ---
         const BASE_IMAGE_URL = "https://www.lumen.com.mx/"; 
-
-        // --- CONFIGURACIÓN DE CACHÉ ---
-        const CACHE_KEY = 'lumen_products_cache_v1';
-        const CACHE_DURATION = 1000 * 60 * 60; // 1 hora en milisegundos
+        const CACHE_KEY = 'lumen_products_cache_v2'; 
+        const CACHE_DURATION = 1000 * 60 * 60; 
 
         // --- ICONOS ---
         const IconBase = ({ children, size = 24, className = "" }) => (
@@ -70,7 +64,6 @@
         const ChevronRight = (p) => <IconBase {...p}><path d="m9 18 6-6-6-6"/></IconBase>;
         const ChevronLeft = (p) => <IconBase {...p}><path d="m15 18-6-6 6-6"/></IconBase>;
         const Truck = (p) => <IconBase {...p}><rect width="16" height="13" x="4" y="5" rx="2" ry="2"/><rect width="6" height="6" x="2" y="9" rx="2" ry="2"/><path d="M18 9h2a2 2 0 0 1 2 2v2"/><path d="M2 13h2"/><path d="M22 13h-2"/></IconBase>;
-        const Phone = (p) => <IconBase {...p}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></IconBase>;
         const MapPin = (p) => <IconBase {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></IconBase>;
         const CreditCard = (p) => <IconBase {...p}><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></IconBase>;
         const CheckCircle = (p) => <IconBase {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></IconBase>;
@@ -81,15 +74,12 @@
         const FilterIcon = (p) => <IconBase {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></IconBase>;
         const Star = (p) => <IconBase {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></IconBase>;
         const Package = (p) => <IconBase {...p}><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></IconBase>;
-        const Clock = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>;
 
-        // --- DATOS DE RESPALDO (MOCK DATA - PAPELERÍA) ---
+        // --- DATOS DE RESPALDO (MOCK DATA) ---
         const MOCK_PRODUCTS = [
             { id: "PAP-001", name: "Papel Bond Carta Blanca 500 Hojas", slug: "papel-bond-carta", price: 95.00, category: "Papel y Oficina", image: "https://placehold.co/600x600/white/e2e8f0?text=Papel+Bond", description: "Caja con 10 paquetes de 500 hojas.", longDescription: "Papel de alta blancura ideal para impresiones láser e inkjet. 75g/m2.", specs: "Tamaño: Carta|Blancura: 99%|Peso: 75g", sku: "PAP-001" },
             { id: "ESC-002", name: "Cuaderno Profesional Scribe", slug: "cuaderno-profesional", price: 28.50, category: "Escolar", image: "https://placehold.co/600x600/e11d48/white?text=Cuaderno", description: "Cuaderno espiral cuadro grande 100 hojas.", longDescription: "Pasta resistente, espiral doble metálico. Hojas de papel bond de 60g.", specs: "Hojas: 100|Tipo: Cuadro Grande|Marca: Scribe", sku: "ESC-002" },
             { id: "ART-003", name: "Caja Bolígrafos BIC Negro", slug: "boligrafos-bic-negro", price: 45.00, category: "Escritura", image: "https://placehold.co/600x600/2563eb/white?text=Boligrafos", description: "Caja con 12 piezas punto mediano.", longDescription: "El clásico bolígrafo que no falla. Tinta de secado rápido y escritura suave.", specs: "Color: Negro|Punto: Mediano|Piezas: 12", sku: "ART-003" },
-            { id: "OFI-004", name: "Archivador de Palanca Oficio", slug: "archivador-palanca", price: 62.00, category: "Archivo y Organización", image: "https://placehold.co/600x600/475569/white?text=Archivador", description: "Registrador tamaño oficio jaspeado.", longDescription: "Mecanismo de palanca niquelado de alta resistencia. Lomo reforzado.", specs: "Tamaño: Oficio|Capacidad: 500 hojas|Material: Cartón rígido", sku: "OFI-004" },
-            { id: "TEC-005", name: "Calculadora Científica Casio", slug: "calculadora-cientifica", price: 350.00, category: "Tecnología", image: "https://placehold.co/600x600/1e293b/white?text=Calculadora", description: "Calculadora con 240 funciones.", longDescription: "Pantalla de 2 líneas, funciones estadísticas y trigonométricas.", specs: "Funciones: 240|Energía: Batería AA|Garantía: 1 año", sku: "TEC-005" },
         ];
 
         const BANNERS = [
@@ -98,7 +88,13 @@
             { id: 3, desktop: "https://placehold.co/1200x360/10b981/ffffff?text=Arte+y+Creatividad&font=roboto", mobile: "https://placehold.co/500x500/10b981/ffffff?text=Arte+y+Diseño", title: "Material de Arte", linkCat: "Escritura" }
         ];
 
-        // --- COMPONENTES UI ---
+        const generateSlug = (text) => {
+            if (!text) return 'item';
+            return text.toString().toLowerCase().trim()
+                .replace(/[\s\W-]+/g, '-') 
+                .replace(/^-+|-+$/g, '');
+        };
+
         const Button = ({ children, onClick, variant = 'primary', className = '', fullWidth = false, disabled = false }) => {
             const variants = {
                 primary: "bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-500/30",
@@ -156,119 +152,153 @@
             );
         };
 
+        // --- COMPONENTE EXTRAÍDO PARA EVITAR EL ERROR #310 ---
+        const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList, onProductClick }) => {
+            if (!product) return null;
+
+            // Hook a nivel de componente - CORRECTO
+            const randomProducts = useMemo(() => {
+                return products
+                    .filter(p => p.id !== product.id)
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, 5);
+            }, [product, products]);
+
+            return (
+                <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in">
+                    <nav className="flex text-sm text-slate-500 mb-6 gap-2 items-center overflow-x-auto">
+                        <span onClick={goHome} className="cursor-pointer hover:text-brand-600">Inicio</span> <ChevronRight size={14}/>
+                        <span onClick={()=>goToProductList(product.category)} className="cursor-pointer hover:text-brand-600">{product.category}</span> <ChevronRight size={14}/>
+                        <span className="font-bold text-slate-900 truncate">{product.name}</span>
+                    </nav>
+
+                    <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden mb-12">
+                        <div className="flex flex-col lg:flex-row">
+                            <div className="lg:w-1/2 p-10 bg-white flex items-center justify-center border-r border-slate-100">
+                                <img src={product.image} className="max-w-full max-h-[500px] object-contain"/>
+                            </div>
+                            
+                            <div className="lg:w-1/2 p-10 flex flex-col">
+                                <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide w-fit mb-4">{product.category}</span>
+                                <h1 className="text-3xl font-extrabold text-slate-900 mb-2">{product.name}</h1>
+                                <div className="text-sm text-slate-400 mb-6 font-mono">SKU: {product.sku}</div>
+                                <div className="text-4xl font-bold text-brand-600 mb-6">${product.price.toFixed(2)}</div>
+                                
+                                <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg mb-6 text-sm font-medium w-fit">
+                                    <Truck size={20}/>
+                                    <span>Entrega estimada: 5 a 7 días hábiles</span>
+                                </div>
+
+                                {product.specs && product.specs.length > 0 && (
+                                    <div className="bg-slate-50 p-6 rounded-xl mb-8 border border-slate-100">
+                                        <h3 className="font-bold text-slate-900 mb-3">Especificaciones</h3>
+                                        <ul className="grid grid-cols-1 gap-2 text-sm text-slate-600">
+                                            {product.specs.map((s,i)=><li key={i} className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-brand-500 rounded-full"></div>{s}</li>)}
+                                        </ul>
+                                    </div>
+                                )}
+                                
+                                <div className="mt-auto">
+                                    <Button fullWidth className="text-lg py-4" onClick={()=>{addToCart(product); navigate('/carrito')}}>Agregar al Carrito</Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-10 bg-slate-50 border-t border-slate-100">
+                            <h3 className="text-xl font-bold text-slate-900 mb-4">Descripción del Producto</h3>
+                            <div className="prose max-w-none text-slate-600">
+                                <p className="mb-4 text-lg font-medium">{product.description}</p>
+                                <p className="leading-relaxed whitespace-pre-line">{product.longDescription || product.description}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ProductCarousel 
+                        title="Por si se te olvidó" 
+                        products={randomProducts} 
+                        onProductClick={onProductClick} 
+                        onAddToCart={addToCart} 
+                    />
+                </div>
+            );
+        };
+
         // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
-            
-            // Estado de datos
             const [loading, setLoading] = useState(true);
-            const [products, setProducts] = useState([]); // Empieza vacío para mostrar loading
+            const [products, setProducts] = useState([]);
             const [categories, setCategories] = useState([]);
-            
-            // Estado de UI/Carrito/Pedido
             const [cart, setCart] = useState([]);
-            const [lastOrder, setLastOrder] = useState(null); // NUEVO: Para guardar el pedido final
+            const [lastOrder, setLastOrder] = useState(null);
             const [activeCategory, setActiveCategory] = useState(null); 
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [isMenuOpen, setIsMenuOpen] = useState(false);
             const [currentBanner, setCurrentBanner] = useState(0);
-            const [activeFilters, setActiveFilters] = useState({ categories: [], minPrice: 0, maxPrice: 10000 });
+            const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+            const [activePriceFilter, setActivePriceFilter] = useState({ min: 0, max: 999999 });
             const [searchTerm, setSearchTerm] = useState('');
             const [searchResults, setSearchResults] = useState([]);
             const [shippingData, setShippingData] = useState({ name: '', email: '', address: '', city: '', cp: '' });
             const [isProcessing, setIsProcessing] = useState(false);
             const [orderId, setOrderId] = useState('');
 
-            // --- MANEJO DE SEO DINÁMICO ---
-            // Actualiza título y meta descripción según el producto o vista
+            // Debounce para búsqueda
             useEffect(() => {
-                let pageTitle = 'Papelería Lumen Mayoreo | Envíos a todo México';
-                let pageDesc = 'Encuentra papelería de mayoreo, artículos de oficina, escolares, arte y computación. Envíos gratis desde $1,500.';
-
-                if (view === 'product-detail' && selectedProduct) {
-                    // Si el producto tiene metaTitle en sheets, úsalo. Si no, genera uno.
-                    pageTitle = selectedProduct.metaTitle 
-                        ? selectedProduct.metaTitle 
-                        : `${selectedProduct.name} | Lumen Mayoreo`;
-                    
-                    // Si tiene metaDescription en sheets, úsala. Si no, usa la descripción corta.
-                    pageDesc = selectedProduct.metaDescription
-                        ? selectedProduct.metaDescription
-                        : `Compra ${selectedProduct.name}. ${selectedProduct.description}. Envío rápido.`;
-                } else if (view === 'product-list') {
-                    if (activeCategory) {
-                        pageTitle = `${activeCategory} - Catálogo Lumen Mayoreo`;
-                        pageDesc = `Explora nuestra selección de ${activeCategory}. Precios especiales para empresas y escuelas.`;
+                const delayDebounceFn = setTimeout(() => {
+                    if (searchTerm.trim().length > 0) {
+                        const results = products.filter(p => 
+                            p.name.toLowerCase().includes(searchTerm.toLowerCase())
+                        ).slice(0, 10);
+                        setSearchResults(results);
+                    } else {
+                        setSearchResults([]);
                     }
-                }
+                }, 500); 
+                return () => clearTimeout(delayDebounceFn);
+            }, [searchTerm, products]);
 
-                // Aplicar cambios al DOM
-                document.title = pageTitle;
-                
-                // Buscar o crear tag de descripción
-                let metaDescTag = document.querySelector('meta[name="description"]');
-                if (!metaDescTag) {
-                    metaDescTag = document.createElement('meta');
-                    metaDescTag.name = "description";
-                    document.head.appendChild(metaDescTag);
-                }
-                metaDescTag.setAttribute("content", pageDesc);
+            const handleSearchChange = (e) => {
+                setSearchTerm(e.target.value);
+            };
 
-            }, [view, selectedProduct, activeCategory]);
-
-
-            // --- CARGA DE DATOS (CON CACHÉ Y LIMPIEZA) ---
+            // Carga de Datos
             useEffect(() => {
                 const loadData = async () => {
                     setLoading(true);
                     let loadedProducts = [];
-
-                    // 1. Revisar Caché Local
                     const cachedData = localStorage.getItem(CACHE_KEY);
                     if (cachedData) {
                         try {
                             const { timestamp, data } = JSON.parse(cachedData);
                             if (Date.now() - timestamp < CACHE_DURATION) {
-                                console.log("Cargando desde caché local...");
                                 setProducts(data);
                                 processCategories(data);
                                 setLoading(false);
-                                return; // Salir si el caché es válido
+                                return;
                             }
                         } catch (e) {
-                            console.error("Error leyendo caché", e);
                             localStorage.removeItem(CACHE_KEY);
                         }
                     }
 
-                    // 2. Si no hay caché o expiró, descargar
                     try {
-                        console.log("Descargando productos de Sheets...");
                         const response = await fetch(GOOGLE_SCRIPT_URL);
-                        if (!response.ok) throw new Error("Error en respuesta HTTP");
-                        
+                        if (!response.ok) throw new Error("Error HTTP");
                         const data = await response.json();
-                        
-                        // Normalizar claves y limpiar datos
                         loadedProducts = data.map(item => {
                             const newItem = {};
-                            const keys = Object.keys(item);
-                            keys.forEach(k => {
+                            Object.keys(item).forEach(k => {
                                 const val = item[k];
                                 const lowK = k.toLowerCase().trim();
                                 if (lowK === 'sku' || lowK === 'id') newItem.id = val;
                                 if (lowK === 'sku') newItem.sku = val;
                                 if (lowK === 'name' || lowK === 'nombre' || lowK === 'producto') newItem.name = val;
-                                
-                                // LIMPIEZA DE PRECIO: Quita '$' y ',' antes de parsear
                                 if (lowK === 'price' || lowK === 'precio') {
                                     const cleanPrice = String(val).replace(/[^0-9.]/g, ''); 
                                     newItem.price = parseFloat(cleanPrice) || 0;
                                 }
-
                                 if (lowK === 'category' || lowK === 'categoria' || lowK === 'categoría') newItem.category = val;
-                                
-                                // LIMPIEZA DE IMAGEN: Si no empieza con http, agrega BASE_IMAGE_URL
                                 if (lowK === 'image' || lowK === 'imagen' || lowK === 'img' || lowK === 'url') {
                                     let imgUrl = String(val).trim();
                                     if (imgUrl && !imgUrl.startsWith('http')) {
@@ -276,17 +306,12 @@
                                     }
                                     newItem.image = imgUrl;
                                 }
-
                                 if (lowK === 'description' || lowK === 'descripcion' || lowK === 'descripción') newItem.description = val;
                                 if (lowK === 'longdescription' || lowK === 'descripcionlarga' || lowK === 'detalle') newItem.longDescription = val;
                                 if (lowK === 'specs' || lowK === 'especificaciones') newItem.specs = val;
-                                
-                                // --- NUEVOS CAMPOS SEO ---
-                                if (lowK === 'metatitle' || lowK === 'meta_title' || lowK === 'titulo_seo') newItem.metaTitle = val;
-                                if (lowK === 'metadescription' || lowK === 'meta_desc' || lowK === 'descripcion_seo') newItem.metaDescription = val;
+                                if (lowK === 'metatitle' || lowK === 'meta_title') newItem.metaTitle = val;
+                                if (lowK === 'metadescription' || lowK === 'meta_desc') newItem.metaDescription = val;
                             });
-
-                            // Valores por defecto
                             if (!newItem.id) newItem.id = Math.random().toString(36).substr(2, 9);
                             if (!newItem.sku) newItem.sku = newItem.id;
                             if (!newItem.name) newItem.name = "Producto sin nombre";
@@ -294,43 +319,31 @@
                             if (!newItem.image) newItem.image = "https://placehold.co/600x600/f1f5f9/64748b?text=Sin+Imagen";
                             if (!newItem.specs) newItem.specs = [];
                             else if (typeof newItem.specs === 'string') newItem.specs = newItem.specs.split('|').map(s => s.trim());
-
                             return newItem;
                         }).filter(p => p.name !== "Producto sin nombre"); 
 
-                        // Calcular slugs
                         loadedProducts = loadedProducts.map(p => ({
                             ...p,
-                            slug: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                            slug: generateSlug(p.name)
                         }));
 
-                        // GUARDAR EN CACHÉ (Safe wrap)
                         if (loadedProducts.length > 0) {
                             try {
                                 localStorage.setItem(CACHE_KEY, JSON.stringify({
                                     timestamp: Date.now(),
                                     data: loadedProducts
                                 }));
-                            } catch (cacheError) {
-                                console.warn("No se pudo guardar en caché (espacio lleno), pero la app funcionará.", cacheError);
-                            }
+                            } catch (e) { console.warn("Caché lleno"); }
                         }
-
                     } catch (error) {
-                        console.error("Fallo carga remota, usando MOCK local.", error);
+                        console.error("Fallo carga remota", error);
                     }
 
-                    // Fallback a MOCK si falla todo
-                    if (loadedProducts.length === 0) {
-                        console.log("Usando datos de respaldo (Papelería)");
-                        loadedProducts = MOCK_PRODUCTS;
-                    }
-
+                    if (loadedProducts.length === 0) loadedProducts = MOCK_PRODUCTS;
                     setProducts(loadedProducts);
                     processCategories(loadedProducts);
                     setLoading(false);
                 };
-
                 loadData();
             }, []);
 
@@ -338,12 +351,11 @@
                 const cats = [...new Set(prods.map(p => p.category))].filter(Boolean).map(c => ({
                     id: c, 
                     name: c,
-                    slug: c.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+                    slug: generateSlug(c)
                 }));
                 setCategories(cats);
             };
 
-            // --- ROUTER & LOGICA ---
             useEffect(() => {
                 const handleHashChange = () => {
                     const hash = window.location.hash;
@@ -352,15 +364,16 @@
                     else if (hash.includes('/producto/')) {
                         const parts = hash.split('/');
                         const prodSlug = parts[parts.length - 1];
-                        const product = products.find(p => p.slug === prodSlug);
-                        if (product) { setSelectedProduct(product); setView('product-detail'); }
+                        if (products.length > 0) {
+                            const product = products.find(p => p.slug === prodSlug);
+                            if (product) { setSelectedProduct(product); setView('product-detail'); }
+                        }
                     } else if (hash.startsWith('#/categoria/')) {
                         const slug = hash.replace('#/categoria/', '');
-                        const cat = categories.find(c => c.slug === slug);
-                        if(cat) setActiveCategory(cat.name);
-                        else {
-                            const catByName = categories.find(c => c.slug.includes(slug) || slug.includes(c.slug));
-                            if(catByName) setActiveCategory(catByName.name);
+                        if (categories.length > 0) {
+                            const cat = categories.find(c => c.slug === slug);
+                            if(cat) setActiveCategory(cat.name);
+                            else setActiveCategory(slug.replace(/-/g, ' '));
                         }
                         setView('product-list');
                     } else if (hash === '#/carrito') setView('cart');
@@ -370,7 +383,7 @@
                     window.scrollTo(0, 0);
                 };
                 window.addEventListener('hashchange', handleHashChange);
-                if (!loading) handleHashChange();
+                if (!loading && products.length > 0) handleHashChange();
                 return () => window.removeEventListener('hashchange', handleHashChange);
             }, [products, categories, loading]);
 
@@ -380,14 +393,13 @@
             const goToProductList = (catName) => { 
                 const cat = categories.find(c => c.name === catName);
                 if(cat) navigate(`/categoria/${cat.slug}`);
-                else navigate(`/categoria/all`);
+                else navigate(`/categoria/${generateSlug(catName)}`);
             };
             const goToProductDetail = (p) => { 
-                const catSlug = p.category ? p.category.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'general';
+                const catSlug = p.category ? generateSlug(p.category) : 'general';
                 navigate(`/categoria/${catSlug}/producto/${p.slug}`); 
             };
 
-            // Helpers
             const addToCart = (p, qty=1) => setCart(prev => {
                 const ex = prev.find(i => i.id === p.id);
                 return ex ? prev.map(i => i.id === p.id ? {...i, quantity: i.quantity + qty} : i) : [...prev, {...p, quantity: qty}];
@@ -396,35 +408,25 @@
             const remove = (id) => setCart(prev => prev.filter(i => i.id !== id));
             const cartTotal = cart.reduce((acc, i) => acc + i.price * i.quantity, 0);
             
-            const handleSearch = (e) => {
-                const term = e.target.value;
-                setSearchTerm(term);
-                if (term.trim().length > 0) {
-                    setSearchResults(products.filter(p => p.name.toLowerCase().includes(term.toLowerCase())));
-                } else setSearchResults([]);
-            };
-
-            const toggleCategoryFilter = (catName) => {
-                setActiveFilters(prev => {
-                    const exists = prev.categories.includes(catName);
-                    return { ...prev, categories: exists ? prev.categories.filter(c => c !== catName) : [...prev.categories, catName] };
-                });
+            const applyPriceFilter = () => {
+                const min = priceRange.min ? parseFloat(priceRange.min) : 0;
+                const max = priceRange.max ? parseFloat(priceRange.max) : 999999;
+                setActivePriceFilter({ min, max });
             };
 
             const getFilteredProducts = () => {
                 let filtered = products;
-                if (activeCategory) filtered = filtered.filter(p => p.category === activeCategory);
-                if (activeFilters.categories.length > 0) filtered = filtered.filter(p => activeFilters.categories.includes(p.category));
+                if (activeCategory) {
+                    filtered = filtered.filter(p => p.category && p.category.toLowerCase().includes(activeCategory.toLowerCase().replace(/-/g, ' ')));
+                }
+                filtered = filtered.filter(p => p.price >= activePriceFilter.min && p.price <= activePriceFilter.max);
                 return filtered;
             };
 
-            // Banner rotator
             useEffect(() => {
                 const timer = setInterval(() => setCurrentBanner(prev => (prev + 1) % BANNERS.length), 5000);
                 return () => clearInterval(timer);
             }, []);
-
-            // --- VISTAS ---
 
             if (loading) {
                 return (
@@ -459,29 +461,30 @@
 
             const renderProductList = () => {
                 const displayedProducts = getFilteredProducts();
-                const availableCats = [...new Set(products.map(p => p.category))];
                 return (
                     <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in flex flex-col md:flex-row gap-8">
                         <aside className="w-full md:w-64 flex-shrink-0">
                             <div className="bg-white p-6 rounded-xl border border-slate-200 sticky top-24 shadow-sm">
-                                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><FilterIcon size={18}/> Filtros</h3>
-                                <div className="space-y-2">
-                                    {availableCats.map(c => (
-                                        <label key={c} className="flex items-center gap-2 cursor-pointer text-sm hover:text-brand-600">
-                                            <input type="checkbox" checked={activeFilters.categories.includes(c) || activeCategory === c} 
-                                                onChange={() => activeCategory === c ? setActiveCategory(null) : toggleCategoryFilter(c)}
-                                                className="rounded text-brand-600 focus:ring-brand-500"/>
-                                            <span>{c}</span>
-                                            <span className="text-slate-400 text-xs ml-auto">({products.filter(p=>p.category===c).length})</span>
-                                        </label>
-                                    ))}
+                                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><FilterIcon size={18}/> Precio</h3>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-slate-500">$</span>
+                                        <input type="number" placeholder="Min" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-brand-500 outline-none" value={priceRange.min} onChange={e => setPriceRange({...priceRange, min: e.target.value})}/>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-slate-500">$</span>
+                                        <input type="number" placeholder="Max" className="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-brand-500 outline-none" value={priceRange.max} onChange={e => setPriceRange({...priceRange, max: e.target.value})}/>
+                                    </div>
+                                    <Button onClick={applyPriceFilter} fullWidth className="text-sm py-2">Aplicar</Button>
+                                    {(activePriceFilter.min > 0 || activePriceFilter.max < 999999) && (
+                                        <button onClick={() => { setPriceRange({min:'', max:''}); setActivePriceFilter({min:0, max:999999}); }} className="text-xs text-red-500 hover:underline text-center">Limpiar Filtro</button>
+                                    )}
                                 </div>
-                                {(activeFilters.categories.length > 0 || activeCategory) && <button onClick={()=>{setActiveCategory(null);setActiveFilters({...activeFilters, categories:[]})}} className="text-xs text-red-500 mt-4 underline">Borrar filtros</button>}
                             </div>
                         </aside>
                         <div className="flex-1">
-                            <h1 className="text-3xl font-bold text-slate-900 mb-6">{activeCategory || 'Todos los Productos'}</h1>
-                            {displayedProducts.length === 0 ? <div className="p-12 text-center bg-white rounded-xl">No hay productos</div> : 
+                            <h1 className="text-3xl font-bold text-slate-900 mb-6 capitalize">{activeCategory || 'Todos los Productos'}</h1>
+                            {displayedProducts.length === 0 ? <div className="p-12 text-center bg-white rounded-xl">No hay productos en este rango de precio.</div> : 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {displayedProducts.map(p => (
                                         <div key={p.id} onClick={()=>goToProductDetail(p)} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all cursor-pointer flex flex-col p-4 group">
@@ -499,82 +502,6 @@
                                 </div>
                             }
                         </div>
-                    </div>
-                );
-            };
-
-            const renderProductDetail = () => {
-                if(!selectedProduct) return null;
-                const catSlug = selectedProduct.category ? selectedProduct.category.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'general';
-                
-                // Productos al azar para "Por si se te olvidó"
-                const randomProducts = useMemo(() => {
-                    return products
-                        .filter(p => p.id !== selectedProduct.id)
-                        .sort(() => 0.5 - Math.random())
-                        .slice(0, 5);
-                }, [selectedProduct, products]);
-
-                return (
-                    <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in">
-                        {/* Breadcrumbs */}
-                        <nav className="flex text-sm text-slate-500 mb-6 gap-2 items-center overflow-x-auto">
-                            <span onClick={goHome} className="cursor-pointer hover:text-brand-600">Inicio</span> <ChevronRight size={14}/>
-                            <span onClick={()=>goToProductList(selectedProduct.category)} className="cursor-pointer hover:text-brand-600">{selectedProduct.category}</span> <ChevronRight size={14}/>
-                            <span className="font-bold text-slate-900 truncate">{selectedProduct.name}</span>
-                        </nav>
-
-                        <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden mb-12">
-                            <div className="flex flex-col lg:flex-row">
-                                {/* Imagen */}
-                                <div className="lg:w-1/2 p-10 bg-white flex items-center justify-center border-r border-slate-100">
-                                    <img src={selectedProduct.image} className="max-w-full max-h-[500px] object-contain"/>
-                                </div>
-                                
-                                {/* Info Principal + Botón de Compra */}
-                                <div className="lg:w-1/2 p-10 flex flex-col">
-                                    <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide w-fit mb-4">{selectedProduct.category}</span>
-                                    <h1 className="text-3xl font-extrabold text-slate-900 mb-2">{selectedProduct.name}</h1>
-                                    <div className="text-sm text-slate-400 mb-6 font-mono">SKU: {selectedProduct.sku}</div>
-                                    <div className="text-4xl font-bold text-brand-600 mb-6">${selectedProduct.price.toFixed(2)}</div>
-                                    
-                                    <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg mb-6 text-sm font-medium w-fit">
-                                        <Truck size={20}/>
-                                        <span>Entrega estimada: 5 a 7 días hábiles</span>
-                                    </div>
-
-                                    {selectedProduct.specs && selectedProduct.specs.length > 0 && (
-                                        <div className="bg-slate-50 p-6 rounded-xl mb-8 border border-slate-100">
-                                            <h3 className="font-bold text-slate-900 mb-3">Especificaciones</h3>
-                                            <ul className="grid grid-cols-1 gap-2 text-sm text-slate-600">
-                                                {selectedProduct.specs.map((s,i)=><li key={i} className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-brand-500 rounded-full"></div>{s}</li>)}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    
-                                    <div className="mt-auto">
-                                        <Button fullWidth className="text-lg py-4" onClick={()=>{addToCart(selectedProduct); navigate('/carrito')}}>Agregar al Carrito</Button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Descripciones Full Width */}
-                            <div className="p-10 bg-slate-50 border-t border-slate-100">
-                                <h3 className="text-xl font-bold text-slate-900 mb-4">Descripción del Producto</h3>
-                                <div className="prose max-w-none text-slate-600">
-                                    <p className="mb-4 text-lg font-medium">{selectedProduct.description}</p>
-                                    <p className="leading-relaxed whitespace-pre-line">{selectedProduct.longDescription || selectedProduct.description}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Carrusel "Por si se te olvidó" */}
-                        <ProductCarousel 
-                            title="Por si se te olvidó" 
-                            products={randomProducts} 
-                            onProductClick={goToProductDetail} 
-                            onAddToCart={addToCart} 
-                        />
                     </div>
                 );
             };
@@ -622,17 +549,9 @@
                         <form onSubmit={(e)=>{
                             e.preventDefault(); 
                             setIsProcessing(true); 
-                            
-                            // Generar ID de orden aleatorio
                             const randomId = 'LUM-' + Math.floor(1000 + Math.random() * 9000);
                             setOrderId(randomId);
-                            
-                            // GUARDAR EL CARRITO ACTUAL ANTES DE BORRARLO PARA EL RESUMEN
-                            setLastOrder({
-                                items: [...cart],
-                                total: cartTotal
-                            });
-
+                            setLastOrder({ items: [...cart], total: cartTotal });
                             setTimeout(()=>{setIsProcessing(false); setCart([]); navigate('/confirmacion')}, 2000)
                         }} className="space-y-4">
                             <div className="relative"><CreditCard className="absolute left-3 top-3.5 text-slate-400"/><input required placeholder="0000 0000 0000 0000" className="w-full pl-10 p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"/></div>
@@ -648,48 +567,24 @@
                     <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600"><CheckCircle size={48}/></div>
                     <h2 className="text-3xl font-extrabold text-slate-900 mb-2">¡Pedido Confirmado!</h2>
                     <p className="text-slate-500 mb-8 max-w-md mx-auto">Gracias por tu compra. Guarda tu número de pedido.</p>
-                    
                     <div className="bg-white max-w-lg mx-auto p-6 rounded-xl border border-slate-200 shadow-sm mb-8 mt-6 text-left">
                         <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
-                            <div>
-                                <p className="text-sm text-slate-500">Número de Pedido</p>
-                                <p className="text-xl font-mono font-bold text-brand-600">{orderId || 'LUM-8842'}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-sm text-slate-500">Total</p>
-                                <p className="text-xl font-bold text-slate-900">${lastOrder ? lastOrder.total.toFixed(2) : '0.00'}</p>
-                            </div>
+                            <div><p className="text-sm text-slate-500">Número de Pedido</p><p className="text-xl font-mono font-bold text-brand-600">{orderId || 'LUM-8842'}</p></div>
+                            <div className="text-right"><p className="text-sm text-slate-500">Total</p><p className="text-xl font-bold text-slate-900">${lastOrder ? lastOrder.total.toFixed(2) : '0.00'}</p></div>
                         </div>
-
-                        {/* LISTA DE PRODUCTOS COMPRADOS */}
                         <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
                             {lastOrder && lastOrder.items.map((item, idx) => (
                                 <div key={idx} className="flex gap-4 text-sm">
-                                    <div className="w-12 h-12 bg-slate-50 rounded flex-shrink-0 flex items-center justify-center border border-slate-100">
-                                        <img src={item.image} className="w-full h-full object-contain"/>
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-bold text-slate-800 line-clamp-1">{item.name}</p>
-                                        <p className="text-slate-500">Cant: {item.quantity} x ${item.price.toFixed(2)}</p>
-                                    </div>
-                                    <div className="font-bold text-slate-900">
-                                        ${(item.quantity * item.price).toFixed(2)}
-                                    </div>
+                                    <div className="w-12 h-12 bg-slate-50 rounded flex-shrink-0 flex items-center justify-center border border-slate-100"><img src={item.image} className="w-full h-full object-contain"/></div>
+                                    <div className="flex-1"><p className="font-bold text-slate-800 line-clamp-1">{item.name}</p><p className="text-slate-500">Cant: {item.quantity} x ${item.price.toFixed(2)}</p></div>
+                                    <div className="font-bold text-slate-900">${(item.quantity * item.price).toFixed(2)}</div>
                                 </div>
                             ))}
                         </div>
-                        
                         <div className="border-t border-slate-100 pt-4 flex flex-col gap-2 text-sm bg-slate-50 -mx-6 -mb-6 p-4 mt-4 rounded-b-xl">
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2 text-green-700">
-                                    <Truck size={16}/>
-                                    <span className="font-medium">Entrega estimada:</span>
-                                </div>
-                                <span className="text-slate-800 font-bold">5 a 7 días hábiles</span>
-                            </div>
+                            <div className="flex justify-between items-center"><div className="flex items-center gap-2 text-green-700"><Truck size={16}/><span className="font-medium">Entrega estimada:</span></div><span className="text-slate-800 font-bold">5 a 7 días hábiles</span></div>
                         </div>
                     </div>
-
                     <Button onClick={goHome}>Volver a la Tienda</Button>
                 </div>
             );
@@ -714,23 +609,12 @@
                         <div className="container mx-auto px-6 h-20 flex items-center justify-between gap-4">
                             <div onClick={goHome} className="flex items-center gap-2 cursor-pointer flex-shrink-0">
                                 <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm"><Package size={24}/></div>
-                                <div className="hidden md:block leading-tight">
-                                    <span className="block font-bold text-lg">LUMEN</span>
-                                    <span className="block text-xs text-brand-100 font-medium tracking-widest">MAYOREO</span>
-                                </div>
+                                <div className="hidden md:block leading-tight"><span className="block font-bold text-lg">LUMEN</span><span className="block text-xs text-brand-100 font-medium tracking-widest">MAYOREO</span></div>
                             </div>
-                            
                             <div className="flex-1 max-w-2xl relative">
-                                <input 
-                                    type="text" 
-                                    placeholder="Buscar productos (ej. Papel, Plumas, Cuadernos)..." 
-                                    className="w-full pl-4 pr-10 py-2.5 rounded-full text-slate-900 bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-300"
-                                    value={searchTerm}
-                                    onChange={handleSearch}
-                                />
+                                <input type="text" placeholder="Buscar productos..." className="w-full pl-4 pr-10 py-2.5 rounded-full text-slate-900 bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-brand-300" value={searchTerm} onChange={handleSearchChange}/>
                                 {searchTerm && <button onClick={()=>{setSearchTerm('');setSearchResults([])}} className="absolute right-10 top-3 text-slate-400 hover:text-slate-600"><X size={16}/></button>}
                                 <Search className="absolute right-3 top-3 text-slate-400" size={18}/>
-                                
                                 {searchResults.length > 0 && (
                                     <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-50 max-h-80 overflow-y-auto">
                                         {searchResults.map(p => (
@@ -742,51 +626,42 @@
                                     </div>
                                 )}
                             </div>
-
                             <div className="flex items-center gap-4 flex-shrink-0">
                                 <button onClick={goToCategories} className="hidden md:flex items-center gap-2 font-bold hover:text-brand-100 transition-colors"><MenuIcon size={20}/> Categorías</button>
-                                <div onClick={()=>navigate('/carrito')} className="relative cursor-pointer hover:text-brand-100 transition-colors">
-                                    <ShoppingCart size={26}/>
-                                    {cart.length > 0 && <span className="absolute -top-2 -right-2 bg-accent-500 text-slate-900 font-bold text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-sm">{cart.reduce((a,c)=>a+c.quantity,0)}</span>}
-                                </div>
+                                <div onClick={()=>navigate('/carrito')} className="relative cursor-pointer hover:text-brand-100 transition-colors"><ShoppingCart size={26}/>{cart.length > 0 && <span className="absolute -top-2 -right-2 bg-accent-500 text-slate-900 font-bold text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-sm">{cart.reduce((a,c)=>a+c.quantity,0)}</span>}</div>
                             </div>
                         </div>
                     </header>
-
                     <main className="flex-1">
                         {view === 'home' && renderHome()}
                         {view === 'product-list' && renderProductList()}
-                        {view === 'product-detail' && renderProductDetail()}
+                        
+                        {view === 'product-detail' && selectedProduct && (
+                            <ProductDetailView 
+                                product={selectedProduct}
+                                products={products}
+                                addToCart={addToCart}
+                                goHome={goHome}
+                                goToProductList={goToProductList}
+                                navigate={navigate}
+                                onProductClick={goToProductDetail}
+                            />
+                        )}
+
                         {view === 'cart' && renderCart()}
                         {view === 'checkout-shipping' && renderCheckoutShipping()}
                         {view === 'checkout-payment' && renderCheckoutPayment()}
                         {view === 'success' && renderSuccess()}
                         {view === 'categories' && renderCategoriesView()}
                     </main>
-
                     <footer className="bg-slate-900 text-slate-400 py-12 mt-auto">
                         <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
-                            <div>
-                                <div className="flex items-center gap-2 text-white font-bold text-lg mb-4"><Package/> LUMEN MAYOREO</div>
-                                <p>Soluciones integrales de papelería para empresas y escuelas.</p>
-                            </div>
-                            <div>
-                                <h4 className="text-white font-bold mb-4">Servicio al Cliente</h4>
-                                <ul className="space-y-2"><li>Ayuda</li><li>Envíos</li><li>Devoluciones</li></ul>
-                            </div>
-                            <div>
-                                <h4 className="text-white font-bold mb-4">Empresa</h4>
-                                <ul className="space-y-2"><li>Nosotros</li><li>Sucursales</li><li>Bolsa de Trabajo</li></ul>
-                            </div>
-                            <div>
-                                <h4 className="text-white font-bold mb-4">Contacto</h4>
-                                <p>ventas@lumen-mayoreo.mx</p>
-                                <p>(55) 5555 5555</p>
-                            </div>
+                            <div><div className="flex items-center gap-2 text-white font-bold text-lg mb-4"><Package/> LUMEN MAYOREO</div><p>Soluciones integrales de papelería para empresas y escuelas.</p></div>
+                            <div><h4 className="text-white font-bold mb-4">Servicio al Cliente</h4><ul className="space-y-2"><li>Ayuda</li><li>Envíos</li><li>Devoluciones</li></ul></div>
+                            <div><h4 className="text-white font-bold mb-4">Empresa</h4><ul className="space-y-2"><li>Nosotros</li><li>Sucursales</li><li>Bolsa de Trabajo</li></ul></div>
+                            <div><h4 className="text-white font-bold mb-4">Contacto</h4><p>ventas@lumen-mayoreo.mx</p><p>(55) 5555 5555</p></div>
                         </div>
-                        <div className="container mx-auto px-6 mt-12 pt-8 border-t border-slate-800 text-center text-xs">
-                            © 2024 Papelería Lumen Mayoreo. Todos los derechos reservados.
-                        </div>
+                        <div className="container mx-auto px-6 mt-12 pt-8 border-t border-slate-800 text-center text-xs">© 2024 Papelería Lumen Mayoreo. Todos los derechos reservados.</div>
                     </footer>
                 </div>
             );
