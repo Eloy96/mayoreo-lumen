@@ -332,7 +332,7 @@
                     } else if (hash === '#/categorias') {
                         setView('categories');
                         document.title = 'VialPro | Categorías';
-                    } else if (hash.startsWith('#/categoria/')) {
+                    } else if (hash.startsWith('#/categoria/') && !hash.includes('/producto/')) {
                         const slug = hash.replace('#/categoria/', '');
                         const category = CATEGORIES.find(c => c.slug === slug);
                         if (category) {
@@ -340,9 +340,12 @@
                             setView('product-list');
                             document.title = `VialPro | ${category.name}`;
                         }
-                    } else if (hash.startsWith('#/producto/')) {
-                        const slug = hash.replace('#/producto/', '');
-                        const product = PRODUCTS.find(p => p.slug === slug);
+                    } else if (hash.includes('/producto/')) {
+                        // Nuevo formato: #/categoria/cat-slug/producto/prod-slug
+                        const parts = hash.split('/');
+                        const prodSlug = parts[parts.length - 1]; // Toma el último segmento
+                        const product = PRODUCTS.find(p => p.slug === prodSlug);
+                        
                         if (product) {
                             setSelectedProduct(product);
                             setView('product-detail');
@@ -374,7 +377,14 @@
             const goHome = () => navigate('/');
             const goToCategories = () => { setIsMenuOpen(false); navigate('/categorias'); };
             const goToProductList = (category) => { setActiveCategory(category); navigate(`/categoria/${category.slug}`); };
-            const goToProductDetail = (product) => { setSelectedProduct(product); navigate(`/producto/${product.slug}`); };
+            
+            // ACTUALIZADO: Navegación de producto ahora incluye categoría
+            const goToProductDetail = (product) => { 
+                const category = CATEGORIES.find(c => c.id === product.category);
+                setSelectedProduct(product); 
+                navigate(`/categoria/${category.slug}/producto/${product.slug}`); 
+            };
+            
             const goToCart = () => navigate('/carrito');
 
             useEffect(() => {
@@ -412,8 +422,7 @@
             const handleAddToCartQuick = (product) => { addToCart(product); };
 
             // ... Render Functions ...
-            // (He omitido render functions duplicadas que no cambian para mantener el foco en la estructura, pero el render completo se incluye en el App final abajo)
-
+            
             const renderHome = () => (
                 <div className="animate-fade-in">
                     <div className="relative w-full overflow-hidden bg-slate-900">
@@ -473,7 +482,18 @@
             );
 
             const renderProductList = () => {
-                const displayCategory = activeCategory || CATEGORIES.find(c => c.slug === window.location.hash.split('/')[2]);
+                // Parseo avanzado para recuperar categoría desde URL compleja
+                let displayCategory = activeCategory;
+                if (!displayCategory) {
+                    const hash = window.location.hash;
+                    // Intenta sacar slug de: #/categoria/SLUG o #/categoria/SLUG/producto/PROD
+                    const parts = hash.split('/');
+                    const catIndex = parts.indexOf('categoria');
+                    if (catIndex !== -1 && parts[catIndex + 1]) {
+                         displayCategory = CATEGORIES.find(c => c.slug === parts[catIndex + 1]);
+                    }
+                }
+                
                 const filtered = displayCategory ? PRODUCTS.filter(p => p.category === displayCategory.id) : PRODUCTS;
                 
                 return (
@@ -507,14 +527,29 @@
             };
 
             const renderProductDetail = () => {
-                const displayProduct = selectedProduct || PRODUCTS.find(p => p.slug === window.location.hash.split('/')[2]);
+                // Recuperación segura del producto desde URL
+                let displayProduct = selectedProduct;
+                if (!displayProduct) {
+                    const parts = window.location.hash.split('/');
+                    const prodSlug = parts[parts.length - 1];
+                    displayProduct = PRODUCTS.find(p => p.slug === prodSlug);
+                }
+
                 if (!displayProduct) return <div className="p-12 text-center">Cargando producto...</div>;
                 const category = CATEGORIES.find(c => c.id === displayProduct.category);
+
                 return (
                     <div className="container mx-auto px-6 py-8 animate-fade-in min-h-screen">
-                        <button onClick={() => goToProductList(category)} className="flex items-center text-gray-500 hover:text-slate-900 mb-6">
-                            <ArrowLeft size={20} className="mr-2"/> Volver a {category?.name}
-                        </button>
+                        
+                        {/* BREADCRUMBS (MIGAS DE PAN) */}
+                        <nav className="flex items-center text-sm text-gray-500 mb-6 overflow-x-auto whitespace-nowrap">
+                            <span onClick={goHome} className="cursor-pointer hover:text-yellow-600 hover:underline">Inicio</span>
+                            <ChevronRight size={14} className="mx-2 text-gray-400"/>
+                            <span onClick={() => goToProductList(category)} className="cursor-pointer hover:text-yellow-600 hover:underline">{category?.name}</span>
+                            <ChevronRight size={14} className="mx-2 text-gray-400"/>
+                            <span className="font-bold text-slate-900">{displayProduct.name}</span>
+                        </nav>
+
                         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden flex flex-col lg:flex-row">
                             <div className="lg:w-1/2 bg-gray-50 p-12 flex items-center justify-center">
                                 <img src={displayProduct.image} alt={displayProduct.name} className="max-w-full max-h-[500px] object-contain drop-shadow-2xl"/>
