@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Meta descripción base (será reemplazada dinámicamente) -->
+    <meta name="description" content="Papelería Lumen Mayoreo. Encuentra todo para tu oficina y escuela al mejor precio.">
     <title>Papelería Lumen Mayoreo</title>
     
     <!-- Tailwind CSS -->
@@ -177,6 +179,44 @@
             const [isProcessing, setIsProcessing] = useState(false);
             const [orderId, setOrderId] = useState('');
 
+            // --- MANEJO DE SEO DINÁMICO ---
+            // Actualiza título y meta descripción según el producto o vista
+            useEffect(() => {
+                let pageTitle = 'Papelería Lumen Mayoreo | Envíos a todo México';
+                let pageDesc = 'Encuentra papelería de mayoreo, artículos de oficina, escolares, arte y computación. Envíos gratis desde $1,500.';
+
+                if (view === 'product-detail' && selectedProduct) {
+                    // Si el producto tiene metaTitle en sheets, úsalo. Si no, genera uno.
+                    pageTitle = selectedProduct.metaTitle 
+                        ? selectedProduct.metaTitle 
+                        : `${selectedProduct.name} | Lumen Mayoreo`;
+                    
+                    // Si tiene metaDescription en sheets, úsala. Si no, usa la descripción corta.
+                    pageDesc = selectedProduct.metaDescription
+                        ? selectedProduct.metaDescription
+                        : `Compra ${selectedProduct.name}. ${selectedProduct.description}. Envío rápido.`;
+                } else if (view === 'product-list') {
+                    if (activeCategory) {
+                        pageTitle = `${activeCategory} - Catálogo Lumen Mayoreo`;
+                        pageDesc = `Explora nuestra selección de ${activeCategory}. Precios especiales para empresas y escuelas.`;
+                    }
+                }
+
+                // Aplicar cambios al DOM
+                document.title = pageTitle;
+                
+                // Buscar o crear tag de descripción
+                let metaDescTag = document.querySelector('meta[name="description"]');
+                if (!metaDescTag) {
+                    metaDescTag = document.createElement('meta');
+                    metaDescTag.name = "description";
+                    document.head.appendChild(metaDescTag);
+                }
+                metaDescTag.setAttribute("content", pageDesc);
+
+            }, [view, selectedProduct, activeCategory]);
+
+
             // --- CARGA DE DATOS (CON CACHÉ Y LIMPIEZA) ---
             useEffect(() => {
                 const loadData = async () => {
@@ -240,6 +280,10 @@
                                 if (lowK === 'description' || lowK === 'descripcion' || lowK === 'descripción') newItem.description = val;
                                 if (lowK === 'longdescription' || lowK === 'descripcionlarga' || lowK === 'detalle') newItem.longDescription = val;
                                 if (lowK === 'specs' || lowK === 'especificaciones') newItem.specs = val;
+                                
+                                // --- NUEVOS CAMPOS SEO ---
+                                if (lowK === 'metatitle' || lowK === 'meta_title' || lowK === 'titulo_seo') newItem.metaTitle = val;
+                                if (lowK === 'metadescription' || lowK === 'meta_desc' || lowK === 'descripcion_seo') newItem.metaDescription = val;
                             });
 
                             // Valores por defecto
