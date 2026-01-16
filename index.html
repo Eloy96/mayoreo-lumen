@@ -15,7 +15,7 @@
     <!-- 3. Cargar Babel para interpretar JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 4. Cargar PapaParse para leer Google Sheets (CSV) -->
+    <!-- 4. Cargar PapaParse (Backup por si se usa CSV) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <style>
@@ -47,7 +47,6 @@
         const Search = (p) => <IconBase {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></IconBase>;
         const ChevronRight = (p) => <IconBase {...p}><path d="m9 18 6-6-6-6"/></IconBase>;
         const ChevronLeft = (p) => <IconBase {...p}><path d="m15 18-6-6 6-6"/></IconBase>;
-        // Star icon removed
         const Truck = (p) => <IconBase {...p}><path d="M5 18H3c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1h10c.6 0 1 .4 1 1v11"/><path d="M14 9h4l4 4v4c0 .6-.4 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><path d="M15 18H9"/><circle cx="17" cy="18" r="2"/></IconBase>;
         const ShieldCheck = (p) => <IconBase {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></IconBase>;
         const Phone = (p) => <IconBase {...p}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></IconBase>;
@@ -62,6 +61,7 @@
         const Info = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></IconBase>;
         const Mail = (p) => <IconBase {...p}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></IconBase>;
         const FilterIcon = (p) => <IconBase {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></IconBase>;
+        const Star = (p) => <IconBase {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></IconBase>;
 
         // --- DATOS DE EJEMPLO (FALLBACK) ---
         const MOCK_PRODUCTS = [
@@ -118,15 +118,17 @@
         // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
-            const [products, setProducts] = useState([]);
-            const [categories, setCategories] = useState([]);
+            
+            // Inicializar con MOCKs para que no se vea vacío mientras carga
+            const [products, setProducts] = useState(MOCK_PRODUCTS);
+            const [categories, setCategories] = useState([...new Set(MOCK_PRODUCTS.map(p => p.category))].map(c => ({ id: c, name: c, slug: c.toLowerCase().replace(/ /g, '-') })));
+            
             const [cart, setCart] = useState([]);
-            const [activeCategory, setActiveCategory] = useState(null); // String name of category or null
+            const [activeCategory, setActiveCategory] = useState(null); 
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [isMenuOpen, setIsMenuOpen] = useState(false);
             const [currentBanner, setCurrentBanner] = useState(0);
             
-            // Filtros Dinámicos
             const [activeFilters, setActiveFilters] = useState({ categories: [], minPrice: 0, maxPrice: 10000 });
             const [searchTerm, setSearchTerm] = useState('');
             const [searchResults, setSearchResults] = useState([]);
@@ -139,37 +141,53 @@
                     if (GOOGLE_SCRIPT_URL) {
                         try {
                             const response = await fetch(GOOGLE_SCRIPT_URL);
-                            const data = await response.json();
+                            if (!response.ok) throw new Error("Error en la respuesta del script");
                             
-                            const loadedProducts = data
+                            const data = await response.json();
+                            console.log("Datos recibidos de Sheets:", data); // Debug para ver qué llega
+
+                            // Normalizar claves a minúsculas para evitar errores por "Name" vs "name"
+                            const normalizedData = data.map(item => {
+                                const newItem = {};
+                                Object.keys(item).forEach(key => {
+                                    newItem[key.toLowerCase()] = item[key];
+                                });
+                                return newItem;
+                            });
+
+                            const loadedProducts = normalizedData
                                 .filter(row => (row.sku || row.id) && row.name)
                                 .map(row => ({
                                     ...row,
                                     id: row.sku || row.id, // ID principal es SKU
+                                    name: row.name,
+                                    category: row.category,
+                                    image: row.image,
+                                    description: row.description,
+                                    longDescription: row.longdescription || row.description, // Nota: keys lowercase
                                     price: parseFloat(row.price) || 0,
-                                    specs: row.specs ? row.specs.split('|').map(s => s.trim()) : []
+                                    specs: row.specs ? row.specs.split('|').map(s => s.trim()) : [],
+                                    sku: row.sku
                                 }));
                             
-                            setProducts(loadedProducts);
-                            processCategories(loadedProducts);
+                            if (loadedProducts.length > 0) {
+                                setProducts(loadedProducts);
+                                processCategories(loadedProducts);
+                            } else {
+                                console.warn("La hoja no devolvió productos válidos. Revisa las columnas (id/sku, name).");
+                            }
                         } catch (error) {
-                            console.error("Error cargando desde Apps Script:", error);
-                            // Fallback
-                            setProducts(MOCK_PRODUCTS);
-                            processCategories(MOCK_PRODUCTS);
+                            console.error("Fallo al cargar datos reales, usando respaldo:", error);
+                            // No hacemos nada, ya tenemos los MOCKs cargados por defecto
                         }
-                    } else {
-                        setProducts(MOCK_PRODUCTS);
-                        processCategories(MOCK_PRODUCTS);
                     }
                 };
                 loadData();
             }, []);
 
             const processCategories = (prods) => {
-                // Extraer categorías únicas automáticamente del Sheet
                 const cats = [...new Set(prods.map(p => p.category))].filter(Boolean).map(c => ({
-                    id: c, // Usamos el nombre como ID para simplificar si no hay ID explícito en sheet
+                    id: c, 
                     name: c,
                     slug: c.toLowerCase().replace(/ /g, '-')
                 }));
@@ -191,11 +209,9 @@
 
             const getFilteredProducts = () => {
                 let filtered = products;
-                // 1. Filtro principal de vista (si vienes del home por categoría)
                 if (activeCategory) {
                     filtered = filtered.filter(p => p.category === activeCategory);
                 }
-                // 2. Filtros laterales (Checkboxes)
                 if (activeFilters.categories.length > 0) {
                     filtered = filtered.filter(p => activeFilters.categories.includes(p.category));
                 }
@@ -214,7 +230,6 @@
                     } else if (hash.includes('/producto/')) {
                         const parts = hash.split('/');
                         const prodSlug = parts[parts.length - 1];
-                        // Esperar a que carguen productos si es carga inicial
                         const product = products.find(p => p.slug === prodSlug);
                         if (product) { setSelectedProduct(product); setView('product-detail'); }
                     } else if (hash.startsWith('#/categoria/')) {
@@ -229,7 +244,7 @@
                     window.scrollTo(0, 0);
                 };
                 window.addEventListener('hashchange', handleHashChange);
-                if (products.length > 0) handleHashChange(); // Re-ejecutar cuando carguen productos
+                if (products.length > 0) handleHashChange(); 
                 return () => window.removeEventListener('hashchange', handleHashChange);
             }, [products, categories]);
 
@@ -239,9 +254,7 @@
             const goToProductList = (catName) => { 
                 const cat = categories.find(c => c.name === catName);
                 if(cat) navigate(`/categoria/${cat.slug}`);
-                else {
-                    navigate(`/categoria/${catName.toLowerCase().replace(/ /g, '-')}`);
-                }
+                else navigate(`/categoria/${catName.toLowerCase().replace(/ /g, '-')}`);
             };
             const goToProductDetail = (p) => { 
                 const catSlug = p.category.toLowerCase().replace(/ /g, '-');
@@ -269,7 +282,6 @@
             // --- RENDERIZADORES ---
             const renderHome = () => (
                 <div className="animate-fade-in">
-                    {/* Banners */}
                     <div className="relative w-full bg-slate-900 overflow-hidden h-[400px] md:h-[360px]">
                         {BANNERS.map((b, i) => (
                             <div key={b.id} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentBanner ? 'opacity-100' : 'opacity-0'}`}>
@@ -281,7 +293,6 @@
                             </div>
                         ))}
                     </div>
-                    {/* Listas automáticas */}
                     <ProductCarousel title="Destacados" products={products.slice(0, 4)} onProductClick={goToProductDetail} onAddToCart={addToCart} />
                     <ProductCarousel title="Nuevos Arribos" products={products.slice(4, 8)} onProductClick={goToProductDetail} onAddToCart={addToCart} />
                 </div>
@@ -289,78 +300,50 @@
 
             const renderProductList = () => {
                 const displayedProducts = getFilteredProducts();
-                // Calcular categorías disponibles para el filtro lateral basándose en TODOS los productos
                 const availableCats = [...new Set(products.map(p => p.category))];
 
                 return (
                     <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in flex flex-col md:flex-row gap-8">
-                        {/* SIDEBAR DE FILTROS AUTOMÁTICOS */}
                         <aside className="w-full md:w-64 flex-shrink-0">
                             <div className="bg-white p-6 rounded-xl border border-gray-100 sticky top-24">
                                 <div className="flex items-center gap-2 font-bold text-lg mb-4 text-slate-900 border-b pb-2">
                                     <FilterIcon size={20} className="text-yellow-500"/> Filtros
                                 </div>
-                                
                                 <div className="mb-6">
                                     <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-wider">Categorías</h4>
                                     <div className="space-y-2">
                                         {availableCats.map(cat => (
                                             <label key={cat} className="flex items-center gap-2 cursor-pointer hover:text-yellow-600 transition-colors">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={activeFilters.categories.includes(cat) || activeCategory === cat}
-                                                    onChange={() => {
-                                                        if(activeCategory === cat) setActiveCategory(null); // Desactivar si era el principal
-                                                        else toggleCategoryFilter(cat);
-                                                    }}
-                                                    className="rounded text-yellow-500 focus:ring-yellow-500"
-                                                />
+                                                <input type="checkbox" checked={activeFilters.categories.includes(cat) || activeCategory === cat} onChange={() => { if(activeCategory === cat) setActiveCategory(null); else toggleCategoryFilter(cat); }} className="rounded text-yellow-500 focus:ring-yellow-500"/>
                                                 <span className="text-sm font-medium">{cat}</span>
                                                 <span className="text-xs text-gray-400 ml-auto">({products.filter(p => p.category === cat).length})</span>
                                             </label>
                                         ))}
                                     </div>
                                 </div>
-
                                 <div className="mb-4">
                                     <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-wider">Precio</h4>
-                                    {/* Placeholder de rango de precio */}
                                     <div className="flex items-center gap-2 text-sm">
-                                        <input type="number" placeholder="Min" className="w-full p-2 border rounded" />
-                                        -
-                                        <input type="number" placeholder="Max" className="w-full p-2 border rounded" />
+                                        <input type="number" placeholder="Min" className="w-full p-2 border rounded" /> - <input type="number" placeholder="Max" className="w-full p-2 border rounded" />
                                     </div>
                                 </div>
-                                
                                 {(activeFilters.categories.length > 0 || activeCategory) && (
-                                    <button 
-                                        onClick={() => { setActiveFilters({...activeFilters, categories: []}); setActiveCategory(null); }}
-                                        className="text-xs text-red-500 hover:underline w-full text-center mt-2"
-                                    >
-                                        Limpiar Filtros
-                                    </button>
+                                    <button onClick={() => { setActiveFilters({...activeFilters, categories: []}); setActiveCategory(null); }} className="text-xs text-red-500 hover:underline w-full text-center mt-2">Limpiar Filtros</button>
                                 )}
                             </div>
                         </aside>
-
-                        {/* GRID DE PRODUCTOS */}
                         <div className="flex-1">
                             <div className="flex justify-between items-center mb-6">
                                 <h1 className="text-3xl font-bold text-slate-900">{activeCategory || 'Catálogo Completo'}</h1>
                                 <span className="text-gray-500 text-sm">{displayedProducts.length} resultados</span>
                             </div>
-
                             {displayedProducts.length === 0 ? (
-                                <div className="text-center py-20 bg-gray-50 rounded-xl">
-                                    <p className="text-gray-500">No se encontraron productos con estos filtros.</p>
-                                </div>
+                                <div className="text-center py-20 bg-gray-50 rounded-xl"><p className="text-gray-500">No se encontraron productos con estos filtros.</p></div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {displayedProducts.map(p => (
                                         <div key={p.id} onClick={() => goToProductDetail(p)} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all cursor-pointer group flex flex-col">
-                                            <div className="aspect-square p-4 relative overflow-hidden">
-                                                <img src={p.image} className="w-full h-full object-contain group-hover:scale-105 transition-transform" />
-                                            </div>
+                                            <div className="aspect-square p-4 relative overflow-hidden"><img src={p.image} className="w-full h-full object-contain group-hover:scale-105 transition-transform" /></div>
                                             <div className="p-4 flex-1 flex flex-col">
                                                 <div className="text-xs text-yellow-600 font-bold mb-1 uppercase">{p.category}</div>
                                                 <h3 className="font-bold text-slate-800 mb-2">{p.name}</h3>
@@ -385,7 +368,6 @@
 
                 return (
                     <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in">
-                        {/* Breadcrumbs */}
                         <nav className="flex items-center text-sm text-gray-500 mb-6 overflow-x-auto">
                             <span onClick={goHome} className="cursor-pointer hover:text-yellow-600">Inicio</span>
                             <ChevronRight size={14} className="mx-2"/>
@@ -393,20 +375,14 @@
                             <ChevronRight size={14} className="mx-2"/>
                             <span className="font-bold text-slate-900">{selectedProduct.name}</span>
                         </nav>
-
                         <div className="bg-white rounded-3xl border border-gray-100 shadow-lg overflow-hidden flex flex-col lg:flex-row">
-                            <div className="lg:w-1/2 p-8 bg-gray-50 flex items-center justify-center">
-                                <img src={selectedProduct.image} className="max-w-full max-h-[500px] object-contain drop-shadow-xl" />
-                            </div>
+                            <div className="lg:w-1/2 p-8 bg-gray-50 flex items-center justify-center"><img src={selectedProduct.image} className="max-w-full max-h-[500px] object-contain drop-shadow-xl" /></div>
                             <div className="lg:w-1/2 p-8 lg:p-12">
                                 <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">{selectedProduct.category}</span>
                                 <h1 className="text-4xl font-extrabold text-slate-900 mt-4 mb-2">{selectedProduct.name}</h1>
                                 <div className="text-sm text-gray-400 mb-6">SKU: {selectedProduct.sku}</div>
-                                <div className="flex items-center gap-4 mb-6">
-                                    <span className="text-3xl font-bold text-slate-900">${selectedProduct.price.toFixed(2)}</span>
-                                </div>
+                                <div className="flex items-center gap-4 mb-6"><span className="text-3xl font-bold text-slate-900">${selectedProduct.price.toFixed(2)}</span></div>
                                 <p className="text-gray-600 text-lg leading-relaxed mb-8">{selectedProduct.longDescription || selectedProduct.description}</p>
-                                
                                 {specsList.length > 0 && (
                                     <div className="bg-slate-50 p-6 rounded-xl mb-8">
                                         <h3 className="font-bold mb-3">Especificaciones</h3>
@@ -415,10 +391,7 @@
                                         </div>
                                     </div>
                                 )}
-
-                                <Button fullWidth className="text-lg py-4" onClick={() => { addToCart(selectedProduct); navigate('/carrito'); }}>
-                                    Agregar al Carrito
-                                </Button>
+                                <Button fullWidth className="text-lg py-4" onClick={() => { addToCart(selectedProduct); navigate('/carrito'); }}>Agregar al Carrito</Button>
                             </div>
                         </div>
                     </div>
@@ -433,28 +406,19 @@
                             {cart.map(i => (
                                 <div key={i.id} className="flex items-center gap-4 bg-white p-4 rounded-lg border shadow-sm">
                                     <img src={i.image} className="w-20 h-20 object-contain" />
-                                    <div className="flex-1">
-                                        <h3 className="font-bold">{i.name}</h3>
-                                        <p className="text-yellow-600 font-bold">${i.price.toFixed(2)}</p>
-                                    </div>
+                                    <div className="flex-1"><h3 className="font-bold">{i.name}</h3><p className="text-yellow-600 font-bold">${i.price.toFixed(2)}</p></div>
                                     <div className="flex items-center bg-gray-100 rounded">
-                                        <button className="px-3 py-1 hover:bg-gray-200" onClick={()=>updateQty(i.id, -1)}>-</button>
-                                        <span className="px-3 font-bold">{i.quantity}</span>
-                                        <button className="px-3 py-1 hover:bg-gray-200" onClick={()=>updateQty(i.id, 1)}>+</button>
+                                        <button className="px-3 py-1 hover:bg-gray-200" onClick={()=>updateQty(i.id, -1)}>-</button><span className="px-3 font-bold">{i.quantity}</span><button className="px-3 py-1 hover:bg-gray-200" onClick={()=>updateQty(i.id, 1)}>+</button>
                                     </div>
                                     <button onClick={()=>remove(i.id)} className="text-red-400 hover:text-red-600 p-2"><X/></button>
                                 </div>
                             ))}
-                            <div className="mt-8 pt-6 border-t flex justify-between items-center">
-                                <div><p className="text-gray-500">Total</p><p className="text-3xl font-bold">${cartTotal.toFixed(2)}</p></div>
-                                <Button onClick={()=>navigate('/checkout/envio')}>Pagar</Button>
-                            </div>
+                            <div className="mt-8 pt-6 border-t flex justify-between items-center"><div><p className="text-gray-500">Total</p><p className="text-3xl font-bold">${cartTotal.toFixed(2)}</p></div><Button onClick={()=>navigate('/checkout/envio')}>Pagar</Button></div>
                         </div>
                     )}
                 </div>
             );
 
-            // Reutilizamos pantallas de checkout simples
             const renderCheckoutShipping = () => (
                 <div className="container mx-auto px-6 py-12 max-w-xl min-h-screen">
                     <h2 className="text-2xl font-bold mb-6">Datos de Envío</h2>
