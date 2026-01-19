@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Papelería Lumen Mayoreo. Encuentra todo para tu oficina y escuela al mejor precio.">
+    <!-- Meta etiqueta vital para que carguen imágenes de Google Drive -->
+    <meta name="referrer" content="no-referrer" />
     <title>Papelería Lumen Mayoreo</title>
     
     <!-- Tailwind CSS -->
@@ -144,19 +146,19 @@
 
         // --- DATOS DE RESPALDO (MOCK DATA) ---
         const MOCK_PRODUCTS = [
-            { id: "PAP-001", name: "Papel Bond Carta Blanca 500 Hojas", slug: "papel-bond-carta", price: 95.00, category: "Papel y Oficina", image: "https://placehold.co/600x600/white/e2e8f0?text=Papel+Bond", description: "Caja con 10 paquetes de 500 hojas.", longDescription: "Papel de alta blancura ideal para impresiones láser e inkjet. 75g/m2.", specs: "Tamaño: Carta|Blancura: 99%|Peso: 75g", sku: "PAP-001" },
-            { id: "ESC-002", name: "Cuaderno Profesional Scribe", slug: "cuaderno-profesional", price: 28.50, category: "Escolar", image: "https://placehold.co/600x600/e11d48/white?text=Cuaderno", description: "Cuaderno espiral cuadro grande 100 hojas.", longDescription: "Pasta resistente, espiral doble metálico. Hojas de papel bond de 60g.", specs: "Hojas: 100|Tipo: Cuadro Grande|Marca: Scribe", sku: "ESC-002" },
+            { id: "PAP-001", name: "Papel Bond Carta Blanca 500 Hojas", slug: "papel-bond-carta", price: 95.00, category: "Papel y Oficina", image: "https://placehold.co/600x600/white/e2e8f0?text=Papel+Bond", description: "Caja con 10 paquetes de 500 hojas.", longDescription: "Papel...", specs: "Tamaño: Carta", sku: "PAP-001" },
+            { id: "ESC-002", name: "Cuaderno Profesional Scribe", slug: "cuaderno-profesional", price: 28.50, category: "Escolar", image: "https://placehold.co/600x600/e11d48/white?text=Cuaderno", description: "Cuaderno espiral 100 hojas.", longDescription: "Pasta resistente.", specs: "Hojas: 100", sku: "ESC-002" },
         ];
         
-        // Configuración de Home por defecto (Backup)
         const DEFAULT_HOME_CONFIG = [
             { type: 'banner_principal', contenido: 'https://placehold.co/1200x360/0056b3/ffffff?text=Regreso+a+Clases', link: '' },
             { type: 'carrusel', titulo: 'Más Vendidos', contenido: 'PAP-001, ESC-002' },
         ];
 
-        // --- HELPERS & COMPONENTS ---
+        // --- HELPERS ---
         const generateSlug = (text) => !text ? 'item' : text.toString().toLowerCase().trim().replace(/[\s\W-]+/g, '-').replace(/^-+|-+$/g, '');
 
+        // --- COMPONENTES ---
         const Button = ({ children, onClick, variant = 'primary', className = '', fullWidth = false, disabled = false }) => {
             const variants = {
                 primary: "bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-500/30",
@@ -178,6 +180,7 @@
             const scrollRef = useRef(null);
             const scroll = (d) => { if(scrollRef.current) scrollRef.current.scrollBy({ left: d === 'left' ? -300 : 300, behavior: 'smooth' }); };
             
+            // Si no hay productos, no renderizamos nada (para evitar carruseles vacíos)
             if (!products || products.length === 0) return null;
 
             return (
@@ -194,7 +197,12 @@
                             {products.map(p => (
                                 <div key={p.id} className="min-w-[260px] md:min-w-[300px] snap-start bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl transition-all cursor-pointer group flex flex-col" onClick={() => onProductClick(p)}>
                                     <div className="aspect-square relative p-6 bg-white rounded-t-xl flex items-center justify-center">
-                                        <img src={p.image} className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform" alt={p.name} onError={(e) => { e.target.src = 'https://placehold.co/300x300/f1f5f9/64748b?text=Sin+Imagen'; }} />
+                                        <img 
+                                            src={p.image} 
+                                            className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform" 
+                                            alt={p.name} 
+                                            onError={(e) => { e.target.src = 'https://placehold.co/300x300/f1f5f9/64748b?text=Sin+Imagen'; }} 
+                                        />
                                     </div>
                                     <div className="p-4 flex-1 flex flex-col border-t border-slate-100">
                                         <div className="text-xs text-brand-600 font-bold uppercase mb-1">{p.category}</div>
@@ -212,10 +220,11 @@
             );
         };
 
-        const MainBannerCarousel = ({ slides, onLinkClick }) => {
+        const MainBannerCarousel = ({ slides }) => {
             const [current, setCurrent] = useState(0);
             
             useEffect(() => {
+                if (slides.length <= 1) return;
                 const timer = setInterval(() => setCurrent(c => (c + 1) % slides.length), 5000);
                 return () => clearInterval(timer);
             }, [slides.length]);
@@ -226,28 +235,39 @@
                 <div className="relative w-full bg-slate-900 overflow-hidden h-[300px] md:h-[400px]">
                     {slides.map((imgUrl, i) => (
                         <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === current ? 'opacity-100' : 'opacity-0'}`}>
-                            <img src={imgUrl} className="w-full h-full object-cover opacity-90" />
+                            <img src={imgUrl} className="w-full h-full object-cover opacity-90" 
+                                onError={(e) => { 
+                                    console.warn("Error cargando banner:", imgUrl);
+                                    e.target.style.display = 'none'; // Ocultar si falla
+                                }} 
+                            />
                         </div>
                     ))}
-                    <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10">
-                        {slides.map((_, i) => (
-                            <button key={i} onClick={()=>setCurrent(i)} className={`h-2 rounded-full transition-all ${i === current ? 'bg-brand-500 w-8' : 'bg-white/50 w-2'}`} />
-                        ))}
-                    </div>
+                    {slides.length > 1 && (
+                        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10">
+                            {slides.map((_, i) => (
+                                <button key={i} onClick={()=>setCurrent(i)} className={`h-2 rounded-full transition-all ${i === current ? 'bg-brand-500 w-8' : 'bg-white/50 w-2'}`} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             );
         };
 
         const StaticBanner = ({ imageUrl, link, onClick }) => {
-            if (!imageUrl) return null;
+            // Manejo seguro de string: si viene "url1, url2", tomar solo "url1"
+            const safeUrl = imageUrl ? imageUrl.split(',')[0].trim() : null;
+            if (!safeUrl) return null;
+
             return (
                 <div className="w-full h-[250px] md:h-[350px] overflow-hidden my-8 cursor-pointer" onClick={() => link && onClick(link)}>
-                    <img src={imageUrl} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+                    <img src={safeUrl} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" 
+                         onError={(e) => { e.target.style.display='none'; }}/>
                 </div>
             );
         };
 
-        const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList, onProductClick }) => {
+        const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList }) => {
             if (!product) return null;
             const [quantity, setQuantity] = useState(1);
             useEffect(() => { setQuantity(1); }, [product.id]);
@@ -257,6 +277,9 @@
             }, [product, products]);
 
             const handleQuantityChange = (delta) => setQuantity(prev => Math.max(1, prev + delta));
+
+            // Solo mostrar botón "Por si se te olvidó" si hay productos
+            const showRelated = randomProducts.length > 0;
 
             return (
                 <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in">
@@ -302,11 +325,19 @@
                             </div>
                         </div>
                     </div>
-                    <ProductCarousel title="Por si se te olvidó" products={randomProducts} onProductClick={onProductClick} onAddToCart={addToCart} />
+                    {showRelated && (
+                         <ProductCarousel 
+                            title="Por si se te olvidó" 
+                            products={randomProducts} 
+                            onProductClick={(p) => { navigate(`/producto/${p.slug}`); window.scrollTo(0,0); }} 
+                            onAddToCart={addToCart} 
+                         />
+                    )}
                 </div>
             );
         };
 
+        // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
             const [loading, setLoading] = useState(true);
@@ -319,7 +350,6 @@
             const [activeCategory, setActiveCategory] = useState(null); 
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [isMenuOpen, setIsMenuOpen] = useState(false);
-            const [currentBanner, setCurrentBanner] = useState(0);
             const [priceRange, setPriceRange] = useState({ min: '', max: '' });
             const [activePriceFilter, setActivePriceFilter] = useState({ min: 0, max: 999999 });
             const [searchTerm, setSearchTerm] = useState('');
@@ -403,7 +433,7 @@
                                 const val = item[k];
                                 const lowK = k.toLowerCase().trim();
                                 if (['sku', 'id'].includes(lowK)) newItem.id = val;
-                                if (lowK === 'sku') newItem.sku = String(val);
+                                if (lowK === 'sku') newItem.sku = String(val); // Convertir SKU a String siempre
                                 if (['name', 'nombre', 'producto'].includes(lowK)) newItem.name = val;
                                 if (['price', 'precio'].includes(lowK)) newItem.price = parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
                                 if (['category', 'categoria', 'categoría'].includes(lowK)) newItem.category = val;
@@ -416,8 +446,11 @@
                                 if (['longdescription', 'descripcionlarga', 'detalle'].includes(lowK)) newItem.longDescription = val;
                                 if (['specs', 'especificaciones'].includes(lowK)) newItem.specs = typeof val === 'string' ? val.split('|').map(s=>s.trim()) : [];
                             });
+                            // Si no hay SKU en columna 'sku', usar ID
+                            if (!newItem.sku && newItem.id) newItem.sku = String(newItem.id);
+                            
+                            // Defaults
                             if (!newItem.id) newItem.id = Math.random().toString(36).substr(2, 9);
-                            if (!newItem.sku) newItem.sku = newItem.id;
                             if (!newItem.name) newItem.name = "Producto sin nombre";
                             if (!newItem.category) newItem.category = "General";
                             return newItem;
@@ -451,6 +484,7 @@
                 setCategories(cats);
             };
 
+            // Router simplified
             useEffect(() => {
                 const handleHashChange = () => {
                     const hash = window.location.hash;
@@ -490,9 +524,11 @@
                 if(cat) navigate(`/categoria/${cat.slug}`);
                 else navigate(`/categoria/${generateSlug(catName)}`);
             };
-            const goToProductDetail = (p) => { 
+            
+            // Función de navegación explícita para detalle de producto (usada en carruseles y cards)
+            const onProductClick = (p) => {
                 const catSlug = p.category ? generateSlug(p.category) : 'general';
-                navigate(`/categoria/${catSlug}/producto/${p.slug}`); 
+                navigate(`/categoria/${catSlug}/producto/${p.slug}`);
             };
 
             const addToCart = (p, qty=1) => {
@@ -559,7 +595,9 @@
 
             const getProductsBySkus = (skuString) => {
                 if (!skuString) return [];
+                // Separar por comas, limpiar espacios, convertir a string y minúsculas
                 const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase());
+                // Filtrar productos asegurando que p.sku existe y convirtiéndolo a string antes de comparar
                 return products.filter(p => p.sku && skus.includes(String(p.sku).toLowerCase()));
             };
 
@@ -589,10 +627,42 @@
                             if (type === 'carrusel') {
                                 const carouselProducts = getProductsBySkus(content);
                                 if (carouselProducts.length === 0) return null;
-                                return <ProductCarousel key={idx} title={title} products={carouselProducts} onProductClick={goToProductDetail} onAddToCart={addToCart} />;
+                                return <ProductCarousel key={idx} title={title} products={carouselProducts} onProductClick={onProductClick} onAddToCart={addToCart} />;
                             }
                             return null;
                         })}
+                    </div>
+                );
+            };
+
+            const renderProductList = () => {
+                const displayedProducts = getFilteredProducts();
+                return (
+                    <div className="container mx-auto px-6 py-8 min-h-screen animate-fade-in flex flex-col md:flex-row gap-8">
+                        <aside className="w-full md:w-64 flex-shrink-0">
+                            <div className="bg-white p-6 rounded-xl border border-slate-200 sticky top-24 shadow-sm">
+                                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><FilterIcon size={18}/> Precio</h3>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-2"><span className="text-sm text-slate-500">$</span><input type="number" placeholder="Min" className="w-full p-2 border border-slate-300 rounded text-sm outline-none" value={priceRange.min} onChange={e => setPriceRange({...priceRange, min: e.target.value})}/></div>
+                                    <div className="flex items-center gap-2"><span className="text-sm text-slate-500">$</span><input type="number" placeholder="Max" className="w-full p-2 border border-slate-300 rounded text-sm outline-none" value={priceRange.max} onChange={e => setPriceRange({...priceRange, max: e.target.value})}/></div>
+                                    <Button onClick={applyPriceFilter} fullWidth className="text-sm py-2">Aplicar</Button>
+                                    {(activePriceFilter.min > 0 || activePriceFilter.max < 999999) && <button onClick={() => { setPriceRange({min:'', max:''}); setActivePriceFilter({min:0, max:999999}); }} className="text-xs text-red-500 hover:underline text-center">Limpiar</button>}
+                                </div>
+                            </div>
+                        </aside>
+                        <div className="flex-1">
+                            <h1 className="text-3xl font-bold text-slate-900 mb-6 capitalize">{activeCategory || 'Todos los Productos'}</h1>
+                            {displayedProducts.length === 0 ? <div className="p-12 text-center bg-white rounded-xl">No hay productos.</div> : 
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {displayedProducts.map(p => (
+                                        <div key={p.id} onClick={()=>onProductClick(p)} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all cursor-pointer flex flex-col p-4 group">
+                                            <div className="aspect-square relative mb-4"><img src={p.image} className="w-full h-full object-contain group-hover:scale-105 transition-transform"/></div>
+                                            <div className="mt-auto"><p className="text-xs text-brand-600 font-bold uppercase mb-1">{p.category}</p><h3 className="font-bold text-slate-900 leading-tight mb-2">{p.name}</h3><div className="flex justify-between items-center"><span className="text-xl font-bold">${p.price.toFixed(2)}</span><button onClick={(e)=>{e.stopPropagation(); addToCart(p)}} className="bg-slate-900 text-white p-2 rounded-full hover:bg-brand-600 transition-colors"><ShoppingCart size={18}/></button></div></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            }
+                        </div>
                     </div>
                 );
             };
@@ -754,6 +824,7 @@
                     <main className="flex-1">
                         {view === 'home' && renderDynamicHome()}
                         {view === 'product-list' && renderProductList()}
+                        
                         {view === 'product-detail' && selectedProduct && (
                             <ProductDetailView 
                                 product={selectedProduct}
@@ -762,9 +833,10 @@
                                 goHome={goHome}
                                 goToProductList={goToProductList}
                                 navigate={navigate}
-                                onProductClick={goToProductDetail}
+                                onProductClick={onProductClick}
                             />
                         )}
+
                         {view === 'cart' && renderCart()}
                         {view === 'checkout-shipping' && renderCheckoutShipping()}
                         {view === 'checkout-payment' && renderCheckoutPayment()}
