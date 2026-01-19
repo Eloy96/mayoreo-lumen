@@ -48,8 +48,8 @@
         const { useState, useEffect, useRef, useMemo } = React;
 
         // --- CONFIGURACIÓN ---
-        // IMPORTANTE: Asegúrate de actualizar tu Script de Google con el código que te daré al final
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPnLM6PF2NQxC6ulguExbM5IStTtV3rFfqS1TML989o2fDSNP4iv5PT72H5GqBq4FvXw/exec"; 
+        // IMPORTANTE: Asegúrate de que esta URL corresponda a la última implementación de tu script
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCIZLtUorJsR0egSR8vYSjiwPMQ4alTNfSsu6WpeTsLEt-SUZSUVxC8Sn8YH984luGIQ/exec"; 
         const BASE_IMAGE_URL = "https://www.lumen.com.mx/"; 
         const CACHE_KEY = 'lumen_products_cache_v3'; 
         const CACHE_DURATION = 1000 * 60 * 60; 
@@ -76,7 +76,7 @@
         const Star = (p) => <IconBase {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></IconBase>;
         const Package = (p) => <IconBase {...p}><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></IconBase>;
         const Clock = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>;
-        const ShieldCheck = (p) => <IconBase {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></IconBase>;
+        const Download = (p) => <IconBase {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></IconBase>;
 
         // --- DATOS DE RESPALDO (MOCK DATA) ---
         const MOCK_PRODUCTS = [
@@ -158,7 +158,6 @@
         const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList, onProductClick }) => {
             if (!product) return null;
             
-            // NUEVO: Estado para cantidad local
             const [quantity, setQuantity] = useState(1);
 
             const randomProducts = useMemo(() => {
@@ -267,13 +266,12 @@
                 try {
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST',
-                        mode: 'no-cors', // Importante: no-cors permite enviar sin error de navegador, aunque la respuesta es opaca
+                        mode: 'no-cors', 
                         headers: {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify(orderData)
                     });
-                    // Asumimos éxito si no hay error de red, ya que no-cors no permite leer respuesta
                     return true;
                 } catch (error) {
                     console.error("Error enviando pedido", error);
@@ -480,6 +478,44 @@
                 return () => clearInterval(timer);
             }, []);
 
+            const handleDownloadAndEmail = async () => {
+                // 1. Descargar Localmente
+                if (lastOrder) {
+                    let receiptText = `COMPROBANTE DE COMPRA - LUMEN MAYOREO\n\n`;
+                    receiptText += `Orden: ${orderId}\n`;
+                    receiptText += `Fecha: ${new Date().toLocaleDateString()}\n`;
+                    receiptText += `Cliente: ${shippingData.name}\n`;
+                    receiptText += `Email: ${shippingData.email}\n`;
+                    receiptText += `\nPRODUCTOS:\n`;
+                    lastOrder.items.forEach(item => {
+                        receiptText += `- ${item.name} x${item.quantity}  $${item.price.toFixed(2)}\n`;
+                    });
+                    receiptText += `\nTOTAL: $${lastOrder.total.toFixed(2)}\n`;
+                    receiptText += `\nGracias por su compra.`;
+
+                    const blob = new Blob([receiptText], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Recibo_Lumen_${orderId}.txt`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                }
+
+                // 2. Intentar Reenviar Correo
+                if (shippingData.email && lastOrder) {
+                    const orderPayload = {
+                        action: 'resend_email',
+                        orderId: orderId,
+                        shipping: shippingData,
+                        items: lastOrder.items,
+                        total: lastOrder.total
+                    };
+                    await submitOrderToSheets(orderPayload);
+                    alert("Se ha intentado reenviar el comprobante a tu correo.");
+                }
+            };
+
             if (loading) {
                 return (
                     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
@@ -665,7 +701,6 @@
                     <h2 className="text-2xl font-bold mb-6">Método de Pago</h2>
                     <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
                         <div className="mb-6 p-4 bg-blue-50 text-blue-800 rounded-lg text-sm flex justify-between items-center"><span>Total a cobrar:</span> <span className="font-bold text-lg">${cartTotal.toFixed(2)}</span></div>
-                        
                         <form onSubmit={async (e)=>{
                             e.preventDefault(); 
                             setIsProcessing(true); 
@@ -758,7 +793,12 @@
                             <div className="flex justify-between items-center"><div className="flex items-center gap-2 text-green-700"><Truck size={16}/><span className="font-medium">Entrega estimada:</span></div><span className="text-slate-800 font-bold">5 a 7 días hábiles</span></div>
                         </div>
                     </div>
-                    <Button onClick={goHome}>Volver a la Tienda</Button>
+                    <div className="flex flex-col gap-4 max-w-lg mx-auto">
+                        <Button onClick={handleDownloadAndEmail} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700">
+                            <Download size={20}/> Descargar y Reenviar Comprobante
+                        </Button>
+                        <Button onClick={goHome} variant="outline" className="w-full">Volver a la Tienda</Button>
+                    </div>
                 </div>
             );
 
