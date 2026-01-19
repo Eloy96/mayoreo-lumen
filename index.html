@@ -257,6 +257,7 @@
         };
 
         const StaticBanner = ({ imageUrl, link, onClick }) => {
+            // Manejo seguro de string: si viene "url1, url2", tomar solo "url1"
             const safeUrl = imageUrl ? imageUrl.split(',')[0].trim() : null;
             if (!safeUrl) return null;
 
@@ -673,9 +674,14 @@
             const getProductsBySkus = (skuString) => {
                 if (!skuString) return [];
                 // Separar por comas, limpiar espacios, convertir a string y minúsculas
-                const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase());
-                // Filtrar productos asegurando que p.sku existe y convirtiéndolo a string antes de comparar
-                return products.filter(p => p.sku && skus.includes(String(p.sku).toLowerCase()));
+                const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase().replace(/^sku-/, '')); // Limpia prefijo si existe
+                
+                return products.filter(p => {
+                    if (!p.sku) return false;
+                    // Comparar SKU limpio (sin prefijo si lo tiene) con la lista de búsqueda limpia
+                    const pSku = String(p.sku).toLowerCase().replace(/^sku-/, '');
+                    return skus.includes(pSku);
+                });
             };
 
             // Función de navegación explícita para detalle de producto
@@ -710,7 +716,6 @@
                             if (type === 'carrusel') {
                                 const carouselProducts = getProductsBySkus(content);
                                 if (carouselProducts.length === 0) {
-                                    // Log para debugging del usuario
                                     console.warn(`Carrusel "${title}" oculto: No se encontraron productos con SKUs: ${content}`);
                                     return null;
                                 }
