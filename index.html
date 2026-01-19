@@ -174,7 +174,6 @@
             </div>
         );
 
-        // Componente: Carrusel de Productos (SKU Based)
         const ProductCarousel = ({ title, products, onProductClick, onAddToCart }) => {
             const scrollRef = useRef(null);
             const scroll = (d) => { if(scrollRef.current) scrollRef.current.scrollBy({ left: d === 'left' ? -300 : 300, behavior: 'smooth' }); };
@@ -213,7 +212,6 @@
             );
         };
 
-        // Componente: Banner Carrusel (Principal)
         const MainBannerCarousel = ({ slides, onLinkClick }) => {
             const [current, setCurrent] = useState(0);
             
@@ -240,7 +238,6 @@
             );
         };
 
-        // Componente: Banner Simple (Imagen Estática)
         const StaticBanner = ({ imageUrl, link, onClick }) => {
             if (!imageUrl) return null;
             return (
@@ -250,7 +247,6 @@
             );
         };
 
-        // Componente: Detalle de Producto
         const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList, onProductClick }) => {
             if (!product) return null;
             const [quantity, setQuantity] = useState(1);
@@ -311,39 +307,29 @@
             );
         };
 
-        // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
             const [loading, setLoading] = useState(true);
             const [connectionError, setConnectionError] = useState(false);
-            
-            // Datos
             const [products, setProducts] = useState([]);
-            const [homeConfig, setHomeConfig] = useState([]); // Nueva configuración de Home
+            const [homeConfig, setHomeConfig] = useState([]);
             const [categories, setCategories] = useState([]);
-            
-            // UI
             const [cart, setCart] = useState([]);
             const [lastOrder, setLastOrder] = useState(null);
             const [activeCategory, setActiveCategory] = useState(null); 
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [isMenuOpen, setIsMenuOpen] = useState(false);
             const [currentBanner, setCurrentBanner] = useState(0);
-            
-            // Filtros y Buscador
             const [priceRange, setPriceRange] = useState({ min: '', max: '' });
             const [activePriceFilter, setActivePriceFilter] = useState({ min: 0, max: 999999 });
             const [searchTerm, setSearchTerm] = useState('');
             const [searchResults, setSearchResults] = useState([]);
-            
-            // Checkout
             const [shippingData, setShippingData] = useState({ name: '', email: '', address: '', city: '', cp: '' });
             const [isProcessing, setIsProcessing] = useState(false);
             const [orderId, setOrderId] = useState('');
             const [cardNum, setCardNum] = useState('');
             const [cardDate, setCardDate] = useState('');
             const [cardCvv, setCardCvv] = useState('');
-            
             const [toastMessage, setToastMessage] = useState('');
             const [showToast, setShowToast] = useState(false);
 
@@ -382,12 +368,26 @@
 
             const handleSearchChange = (e) => setSearchTerm(e.target.value);
 
-            // Carga de Datos (Ahora lee Productos + HomeConfig)
             useEffect(() => {
                 const loadData = async (retryCount = 0) => {
                     setLoading(true);
                     let loadedProducts = [];
                     let loadedHomeConfig = [];
+                    const cachedData = localStorage.getItem(CACHE_KEY);
+                    
+                    if (cachedData) {
+                        try {
+                            const { timestamp, data } = JSON.parse(cachedData);
+                            if (Date.now() - timestamp < CACHE_DURATION) {
+                                setProducts(data);
+                                processCategories(data);
+                                setLoading(false);
+                                return;
+                            }
+                        } catch (e) {
+                            localStorage.removeItem(CACHE_KEY);
+                        }
+                    }
 
                     try {
                         const response = await fetch(GOOGLE_SCRIPT_URL);
@@ -426,7 +426,6 @@
 
                         loadedHomeConfig = rawConfig;
                         setConnectionError(false);
-
                     } catch (error) {
                         console.error("Fallo carga remota", error);
                         if (retryCount < 2) { setTimeout(() => loadData(retryCount + 1), 1500); return; }
@@ -440,16 +439,18 @@
 
                     setProducts(loadedProducts);
                     setHomeConfig(loadedHomeConfig);
-                    
                     const cats = [...new Set(loadedProducts.map(p => p.category))].filter(Boolean).map(c => ({ id: c, name: c, slug: generateSlug(c) }));
                     setCategories(cats);
-                    
                     setLoading(false);
                 };
                 loadData();
             }, []);
 
-            // Router simplified
+            const processCategories = (prods) => {
+                const cats = [...new Set(prods.map(p => p.category))].filter(Boolean).map(c => ({ id: c, name: c, slug: generateSlug(c) }));
+                setCategories(cats);
+            };
+
             useEffect(() => {
                 const handleHashChange = () => {
                     const hash = window.location.hash;
@@ -556,28 +557,27 @@
                 }
             };
 
-            // --- HELPER PARA OBTENER PRODUCTOS POR SKUS ---
             const getProductsBySkus = (skuString) => {
                 if (!skuString) return [];
                 const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase());
-                return products.filter(p => p.sku && skus.includes(String(p.sku).toLowerCase())); // Fix here
+                return products.filter(p => p.sku && skus.includes(String(p.sku).toLowerCase()));
             };
 
             if (loading) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500"><div className="w-16 h-16 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mb-4"></div><p className="font-bold text-lg animate-pulse">Cargando catálogo Lumen...</p></div>;
 
-            // --- RENDERIZADO DINÁMICO DEL HOME ---
             const renderDynamicHome = () => {
                 const layout = (homeConfig && homeConfig.length > 0) ? homeConfig : DEFAULT_HOME_CONFIG;
-                
                 return (
                     <div className="animate-fade-in">
                         {connectionError && <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 flex items-center justify-between"><div className="flex items-center"><AlertTriangle className="mr-2" size={24} /><div><p className="font-bold">Modo Sin Conexión</p><p className="text-sm">Viendo datos demo.</p></div></div></div>}
-                        
                         {layout.map((section, idx) => {
-                            const type = section.tipo || section.type;
+                            let type = (section.tipo || section.type || '').toLowerCase().trim();
                             const title = section.titulo || section.title;
                             const content = section.contenido || section.content;
                             const link = section.link;
+
+                            if (type === 'banner') type = 'banner_principal';
+                            if (type === 'simple' || type === 'imagen') type = 'banner_simple';
 
                             if (type === 'banner_principal') {
                                 const slides = content ? content.split(',').map(s => s.trim()) : [];
@@ -755,7 +755,15 @@
                         {view === 'home' && renderDynamicHome()}
                         {view === 'product-list' && renderProductList()}
                         {view === 'product-detail' && selectedProduct && (
-                            <ProductDetailView product={selectedProduct} products={products} addToCart={addToCart} goHome={goHome} goToProductList={goToProductList} navigate={navigate} onProductClick={goToProductDetail} />
+                            <ProductDetailView 
+                                product={selectedProduct}
+                                products={products}
+                                addToCart={addToCart}
+                                goHome={goHome}
+                                goToProductList={goToProductList}
+                                navigate={navigate}
+                                onProductClick={goToProductDetail}
+                            />
                         )}
                         {view === 'cart' && renderCart()}
                         {view === 'checkout-shipping' && renderCheckoutShipping()}
