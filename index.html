@@ -180,7 +180,6 @@
             const scrollRef = useRef(null);
             const scroll = (d) => { if(scrollRef.current) scrollRef.current.scrollBy({ left: d === 'left' ? -300 : 300, behavior: 'smooth' }); };
             
-            // Si no hay productos, no renderizamos nada (para evitar carruseles vacíos)
             if (!products || products.length === 0) return null;
 
             return (
@@ -267,7 +266,7 @@
             );
         };
 
-        const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList }) => {
+        const ProductDetailView = ({ product, products, addToCart, navigate, goHome, goToProductList, onProductClick }) => {
             if (!product) return null;
             const [quantity, setQuantity] = useState(1);
             useEffect(() => { setQuantity(1); }, [product.id]);
@@ -288,17 +287,24 @@
                         <span onClick={()=>goToProductList(product.category)} className="cursor-pointer hover:text-brand-600">{product.category}</span> <ChevronRight size={14}/>
                         <span className="font-bold text-slate-900 truncate">{product.name}</span>
                     </nav>
+
                     <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden mb-12">
                         <div className="flex flex-col lg:flex-row">
                             <div className="lg:w-1/2 p-10 bg-white flex items-center justify-center border-r border-slate-100">
                                 <img src={product.image} className="max-w-full max-h-[500px] object-contain"/>
                             </div>
+                            
                             <div className="lg:w-1/2 p-10 flex flex-col">
                                 <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide w-fit mb-4">{product.category}</span>
                                 <h1 className="text-3xl font-extrabold text-slate-900 mb-2">{product.name}</h1>
                                 <div className="text-sm text-slate-400 mb-6 font-mono">SKU: {product.sku}</div>
                                 <div className="text-4xl font-bold text-brand-600 mb-6">${product.price.toFixed(2)}</div>
-                                <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg mb-6 text-sm font-medium w-fit"><Truck size={20}/><span>Entrega estimada: 5 a 7 días hábiles</span></div>
+                                
+                                <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg mb-6 text-sm font-medium w-fit">
+                                    <Truck size={20}/>
+                                    <span>Entrega estimada: 5 a 7 días hábiles</span>
+                                </div>
+
                                 {product.specs && product.specs.length > 0 && (
                                     <div className="bg-slate-50 p-6 rounded-xl mb-8 border border-slate-100">
                                         <h3 className="font-bold text-slate-900 mb-3">Especificaciones</h3>
@@ -307,16 +313,18 @@
                                         </ul>
                                     </div>
                                 )}
+                                
                                 <div className="mt-auto flex flex-col sm:flex-row gap-4">
                                     <div className="flex items-center border border-slate-300 rounded-lg">
-                                        <button onClick={() => handleQuantityChange(-1)} className="px-4 py-3 hover:bg-slate-100 text-slate-600 rounded-l-lg">-</button>
+                                        <button onClick={() => handleQuantityChange(-1)} className="px-4 py-3 hover:bg-slate-100 text-slate-600 rounded-l-lg transition-colors">-</button>
                                         <span className="px-4 font-bold text-slate-800 min-w-[3rem] text-center">{quantity}</span>
-                                        <button onClick={() => handleQuantityChange(1)} className="px-4 py-3 hover:bg-slate-100 text-slate-600 rounded-r-lg">+</button>
+                                        <button onClick={() => handleQuantityChange(1)} className="px-4 py-3 hover:bg-slate-100 text-slate-600 rounded-r-lg transition-colors">+</button>
                                     </div>
-                                    <Button fullWidth className="text-lg py-4 flex-1" onClick={()=>{addToCart(product, quantity)}}>Agregar al Carrito</Button>
+                                    <Button fullWidth className="text-lg py-4 flex-1" onClick={()=>{addToCart(product, quantity); navigate('/carrito')}}>Agregar al Carrito</Button>
                                 </div>
                             </div>
                         </div>
+
                         <div className="p-10 bg-slate-50 border-t border-slate-100">
                             <h3 className="text-xl font-bold text-slate-900 mb-4">Descripción del Producto</h3>
                             <div className="prose max-w-none text-slate-600">
@@ -325,14 +333,13 @@
                             </div>
                         </div>
                     </div>
-                    {showRelated && (
-                         <ProductCarousel 
-                            title="Por si se te olvidó" 
-                            products={randomProducts} 
-                            onProductClick={(p) => { navigate(`/producto/${p.slug}`); window.scrollTo(0,0); }} 
-                            onAddToCart={addToCart} 
-                         />
-                    )}
+
+                    <ProductCarousel 
+                        title="Por si se te olvidó" 
+                        products={randomProducts} 
+                        onProductClick={onProductClick} 
+                        onAddToCart={addToCart} 
+                    />
                 </div>
             );
         };
@@ -350,6 +357,7 @@
             const [activeCategory, setActiveCategory] = useState(null); 
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [isMenuOpen, setIsMenuOpen] = useState(false);
+            const [currentBanner, setCurrentBanner] = useState(0);
             const [priceRange, setPriceRange] = useState({ min: '', max: '' });
             const [activePriceFilter, setActivePriceFilter] = useState({ min: 0, max: 999999 });
             const [searchTerm, setSearchTerm] = useState('');
@@ -357,9 +365,11 @@
             const [shippingData, setShippingData] = useState({ name: '', email: '', address: '', city: '', cp: '' });
             const [isProcessing, setIsProcessing] = useState(false);
             const [orderId, setOrderId] = useState('');
+            
             const [cardNum, setCardNum] = useState('');
             const [cardDate, setCardDate] = useState('');
             const [cardCvv, setCardCvv] = useState('');
+            
             const [toastMessage, setToastMessage] = useState('');
             const [showToast, setShowToast] = useState(false);
 
@@ -398,6 +408,54 @@
 
             const handleSearchChange = (e) => setSearchTerm(e.target.value);
 
+            // MANEJO DE SEO DINÁMICO (UPDATED FOR CANONICAL)
+            useEffect(() => {
+                let pageTitle = 'Papelería Lumen Mayoreo | Envíos a todo México';
+                let pageDesc = 'Encuentra papelería de mayoreo, artículos de oficina, escolares, arte y computación. Envíos gratis desde $1,500.';
+                let canonicalUrl = window.location.href.split('#')[0]; // Default base
+
+                if (view === 'product-detail' && selectedProduct) {
+                    pageTitle = selectedProduct.metaTitle ? selectedProduct.metaTitle : `${selectedProduct.name} | Lumen Mayoreo`;
+                    pageDesc = selectedProduct.metaDescription ? selectedProduct.metaDescription : `Compra ${selectedProduct.name}. ${selectedProduct.description}. Envío rápido.`;
+                    
+                    // Lógica canónica desde Sheet o autogenerada
+                    if (selectedProduct.canonical) {
+                        canonicalUrl = selectedProduct.canonical;
+                    } else {
+                         // Fallback automático si no hay en sheet
+                         const catSlug = selectedProduct.category ? generateSlug(selectedProduct.category) : 'general';
+                         canonicalUrl = `${window.location.origin}/#/categoria/${catSlug}/producto/${selectedProduct.slug}`;
+                    }
+                } else if (view === 'product-list') {
+                    if (activeCategory) {
+                        pageTitle = `${activeCategory} - Catálogo Lumen Mayoreo`;
+                        pageDesc = `Explora nuestra selección de ${activeCategory}. Precios especiales para empresas y escuelas.`;
+                        canonicalUrl = `${window.location.origin}/#/categoria/${generateSlug(activeCategory)}`;
+                    }
+                }
+
+                document.title = pageTitle;
+                
+                let metaDescTag = document.querySelector('meta[name="description"]');
+                if (!metaDescTag) {
+                    metaDescTag = document.createElement('meta');
+                    metaDescTag.name = "description";
+                    document.head.appendChild(metaDescTag);
+                }
+                metaDescTag.setAttribute("content", pageDesc);
+
+                // Inyección de Canonical
+                let linkCanonical = document.querySelector("link[rel='canonical']");
+                if (!linkCanonical) {
+                    linkCanonical = document.createElement('link');
+                    linkCanonical.setAttribute('rel', 'canonical');
+                    document.head.appendChild(linkCanonical);
+                }
+                linkCanonical.setAttribute('href', canonicalUrl);
+
+            }, [view, selectedProduct, activeCategory]);
+
+            // Carga de Datos (Ahora lee Productos + HomeConfig)
             useEffect(() => {
                 const loadData = async (retryCount = 0) => {
                     setLoading(true);
@@ -433,7 +491,7 @@
                                 const val = item[k];
                                 const lowK = k.toLowerCase().trim();
                                 if (['sku', 'id'].includes(lowK)) newItem.id = val;
-                                if (lowK === 'sku') newItem.sku = String(val); // Convertir SKU a String siempre
+                                if (lowK === 'sku') newItem.sku = String(val);
                                 if (['name', 'nombre', 'producto'].includes(lowK)) newItem.name = val;
                                 if (['price', 'precio'].includes(lowK)) newItem.price = parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
                                 if (['category', 'categoria', 'categoría'].includes(lowK)) newItem.category = val;
@@ -445,12 +503,13 @@
                                 if (['description', 'descripcion', 'descripción'].includes(lowK)) newItem.description = val;
                                 if (['longdescription', 'descripcionlarga', 'detalle'].includes(lowK)) newItem.longDescription = val;
                                 if (['specs', 'especificaciones'].includes(lowK)) newItem.specs = typeof val === 'string' ? val.split('|').map(s=>s.trim()) : [];
+                                if (['metatitle', 'meta_title'].includes(lowK)) newItem.metaTitle = val;
+                                if (['metadescription', 'meta_desc'].includes(lowK)) newItem.metaDescription = val;
+                                // Lectura de Canonical desde Sheet
+                                if (['canonical', 'canonico', 'url_canonica'].includes(lowK)) newItem.canonical = val;
                             });
-                            // Si no hay SKU en columna 'sku', usar ID
-                            if (!newItem.sku && newItem.id) newItem.sku = String(newItem.id);
-                            
-                            // Defaults
                             if (!newItem.id) newItem.id = Math.random().toString(36).substr(2, 9);
+                            if (!newItem.sku) newItem.sku = newItem.id;
                             if (!newItem.name) newItem.name = "Producto sin nombre";
                             if (!newItem.category) newItem.category = "General";
                             return newItem;
@@ -524,11 +583,9 @@
                 if(cat) navigate(`/categoria/${cat.slug}`);
                 else navigate(`/categoria/${generateSlug(catName)}`);
             };
-            
-            // Función de navegación explícita para detalle de producto (usada en carruseles y cards)
-            const onProductClick = (p) => {
+            const goToProductDetail = (p) => { 
                 const catSlug = p.category ? generateSlug(p.category) : 'general';
-                navigate(`/categoria/${catSlug}/producto/${p.slug}`);
+                navigate(`/categoria/${catSlug}/producto/${p.slug}`); 
             };
 
             const addToCart = (p, qty=1) => {
