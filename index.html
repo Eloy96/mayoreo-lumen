@@ -234,10 +234,13 @@
                 <div className="relative w-full bg-slate-900 overflow-hidden h-[300px] md:h-[400px]">
                     {slides.map((imgUrl, i) => (
                         <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === current ? 'opacity-100' : 'opacity-0'}`}>
-                            <img src={imgUrl} className="w-full h-full object-cover opacity-90" 
+                            <img 
+                                src={imgUrl} 
+                                className="w-full h-full object-cover opacity-90" 
                                 onError={(e) => { 
                                     console.warn("Error cargando banner:", imgUrl);
-                                    e.target.style.display = 'none'; // Ocultar si falla
+                                    // Intento de fallback a imagen segura si falla
+                                    e.target.src = 'https://placehold.co/1200x400/0056b3/ffffff?text=Lumen+Mayoreo';
                                 }} 
                             />
                         </div>
@@ -259,8 +262,11 @@
 
             return (
                 <div className="w-full h-[250px] md:h-[350px] overflow-hidden my-8 cursor-pointer" onClick={() => link && onClick(link)}>
-                    <img src={safeUrl} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" 
-                         onError={(e) => { e.target.style.display='none'; }}/>
+                    <img 
+                        src={safeUrl} 
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" 
+                        onError={(e) => { e.target.style.display='none'; }}
+                    />
                 </div>
             );
         };
@@ -342,6 +348,7 @@
             );
         };
 
+        // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
             const [loading, setLoading] = useState(true);
@@ -491,7 +498,16 @@
                                 if (['category', 'categoria', 'categoría'].includes(lowK)) newItem.category = val;
                                 if (['image', 'imagen', 'img', 'url'].includes(lowK)) {
                                     let imgUrl = String(val).trim();
-                                    if (imgUrl && !imgUrl.startsWith('http')) imgUrl = BASE_IMAGE_URL + (imgUrl.startsWith('/') ? imgUrl.substring(1) : imgUrl);
+                                    
+                                    // CORRECCIÓN: Autodetectar enlaces de Google Drive y usar uc?id= para imágenes directas
+                                    if (imgUrl.includes('drive.google.com') && imgUrl.includes('/file/d/')) {
+                                        const idMatch = imgUrl.match(/\/d\/(.+?)\//);
+                                        if (idMatch) {
+                                            imgUrl = `https://drive.google.com/uc?id=${idMatch[1]}`;
+                                        }
+                                    } else if (imgUrl && !imgUrl.startsWith('http')) {
+                                        imgUrl = BASE_IMAGE_URL + (imgUrl.startsWith('/') ? imgUrl.substring(1) : imgUrl);
+                                    }
                                     newItem.image = imgUrl;
                                 }
                                 if (['description', 'descripcion', 'descripción'].includes(lowK)) newItem.description = val;
@@ -509,7 +525,18 @@
                         }).filter(p => p.name !== "Producto sin nombre")
                         .map(p => ({ ...p, slug: generateSlug(p.name) }));
 
-                        loadedHomeConfig = rawConfig;
+                        // Configuración del Home con corrección de imágenes de Drive
+                        loadedHomeConfig = rawConfig.map(section => {
+                            if (section.contenido && section.contenido.includes('drive.google.com') && section.contenido.includes('/file/d/')) {
+                                const urls = section.contenido.split(',').map(url => {
+                                    const idMatch = url.trim().match(/\/d\/(.+?)\//);
+                                    return idMatch ? `https://drive.google.com/uc?id=${idMatch[1]}` : url.trim();
+                                });
+                                section.contenido = urls.join(',');
+                            }
+                            return section;
+                        });
+
                         setConnectionError(false);
                     } catch (error) {
                         console.error("Fallo carga remota", error);
@@ -645,13 +672,10 @@
 
             const getProductsBySkus = (skuString) => {
                 if (!skuString) return [];
+                // Separar por comas, limpiar espacios, convertir a string y minúsculas
                 const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase());
-                return products.filter(p => {
-                    if (!p.sku) return false;
-                    const pSku = String(p.sku).toLowerCase();
-                    // Match flexible: exact, "sku-17" vs "17", or "17" vs "sku-17"
-                    return skus.some(cSku => cSku === pSku || cSku === `sku-${pSku}` || cSku.replace('sku-', '') === pSku);
-                });
+                // Filtrar productos asegurando que p.sku existe y convirtiéndolo a string antes de comparar
+                return products.filter(p => p.sku && skus.includes(String(p.sku).toLowerCase()));
             };
 
             // Función de navegación explícita para detalle de producto
@@ -715,7 +739,7 @@
                         </aside>
                         <div className="flex-1">
                             <h1 className="text-3xl font-bold text-slate-900 mb-6 capitalize">{activeCategory || 'Todos los Productos'}</h1>
-                            {displayedProducts.length === 0 ? <div className="p-12 text-center bg-white rounded-xl">No hay productos.</div> : 
+                            {displayedProducts.length === 0 ? <div className="p-12 text-center bg-white rounded-xl">No hay productos en este rango de precio.</div> : 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {displayedProducts.map(p => (
                                         <div key={p.id} onClick={()=>onProductClick(p)} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all cursor-pointer flex flex-col p-4 group">
