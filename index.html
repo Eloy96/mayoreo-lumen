@@ -19,7 +19,7 @@
                             100: '#e6f0ff'
                         },
                         accent: {
-                            500: '#FACC15', 
+                            500: '#FACC15', // Amarillo brillante
                         }
                     }
                 }
@@ -152,6 +152,7 @@
         const Clock = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>;
         const Download = (p) => <IconBase {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></IconBase>;
         const ShieldCheck = (p) => <IconBase {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></IconBase>;
+        const AlertTriangle = (p) => <IconBase {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></IconBase>;
 
         // --- DATOS DE RESPALDO (MOCK DATA) ---
         const MOCK_PRODUCTS = [
@@ -317,6 +318,7 @@
         function App() {
             const [view, setView] = useState('home');
             const [loading, setLoading] = useState(true);
+            const [connectionError, setConnectionError] = useState(false); // Estado para error de conexión
             const [products, setProducts] = useState([]);
             const [categories, setCategories] = useState([]);
             const [cart, setCart] = useState([]);
@@ -372,11 +374,14 @@
                 setSearchTerm(e.target.value);
             };
 
+            // Carga de Datos con Reintento
             useEffect(() => {
-                const loadData = async () => {
+                const loadData = async (retryCount = 0) => {
                     setLoading(true);
                     let loadedProducts = [];
                     const cachedData = localStorage.getItem(CACHE_KEY);
+                    
+                    // Intentar cargar de caché primero para velocidad
                     if (cachedData) {
                         try {
                             const { timestamp, data } = JSON.parse(cachedData);
@@ -443,9 +448,16 @@
                                     data: loadedProducts
                                 }));
                             } catch (e) { console.warn("Caché lleno"); }
+                            setConnectionError(false);
                         }
                     } catch (error) {
                         console.error("Fallo carga remota", error);
+                        if (retryCount < 2) { // Reintentar hasta 2 veces más
+                             console.log(`Reintentando conexión... (${retryCount + 1}/3)`);
+                             setTimeout(() => loadData(retryCount + 1), 1500);
+                             return; 
+                        }
+                        setConnectionError(true); // Marcar error si fallan los reintentos
                     }
 
                     if (loadedProducts.length === 0) loadedProducts = MOCK_PRODUCTS;
@@ -579,10 +591,6 @@
 
                 // Generate PDF
                 const element = document.getElementById('invoice-template');
-                // Temporarily ensure it's visible for rendering but off-screen or handled by lib
-                // html2pdf can handle hidden elements if we pass the element itself and modify styles temporarily
-                // But a safer way is to clone it, make visible fixed offscreen, then print.
-                // For simplicity with this lib:
                 element.style.display = 'block';
                 const opt = {
                     margin: 0,
@@ -622,6 +630,18 @@
 
             const renderHome = () => (
                 <div className="animate-fade-in">
+                    {/* Banner de Error de Conexión (si aplica) */}
+                    {connectionError && (
+                        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 flex items-center justify-between" role="alert">
+                            <div className="flex items-center">
+                                <AlertTriangle className="mr-2" size={24} />
+                                <div>
+                                    <p class="font-bold">Modo Sin Conexión</p>
+                                    <p class="text-sm">No pudimos conectar con el servidor. Estás viendo productos de demostración.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="relative w-full bg-slate-900 overflow-hidden h-[300px] md:h-[400px]">
                         {BANNERS.map((b, i) => (
                             <div key={b.id} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentBanner ? 'opacity-100' : 'opacity-0'}`}>
@@ -785,7 +805,22 @@
                         <input required placeholder="Nombre Completo" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" value={shippingData.name} onChange={e=>setShippingData({...shippingData, name: e.target.value})}/>
                         <input required placeholder="Correo Electrónico" type="email" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" value={shippingData.email} onChange={e=>setShippingData({...shippingData, email: e.target.value})}/>
                         <input required placeholder="Dirección de Entrega" className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" value={shippingData.address} onChange={e=>setShippingData({...shippingData, address: e.target.value})}/>
-                        <div className="flex gap-4"><input required placeholder="Ciudad" className="w-full p-3 border rounded-lg outline-none"/><input required placeholder="CP" className="w-full p-3 border rounded-lg outline-none"/></div>
+                        <div className="flex gap-4">
+                            <input 
+                                required 
+                                placeholder="Ciudad" 
+                                className="w-full p-3 border rounded-lg outline-none" 
+                                value={shippingData.city} 
+                                onChange={e=>setShippingData({...shippingData, city: e.target.value})}
+                            />
+                            <input 
+                                required 
+                                placeholder="Código Postal" 
+                                className="w-full p-3 border rounded-lg outline-none"
+                                value={shippingData.cp} 
+                                onChange={e=>setShippingData({...shippingData, cp: e.target.value})}
+                            />
+                        </div>
                         <Button type="submit" fullWidth>Continuar al Pago</Button>
                     </form>
                 </div>
