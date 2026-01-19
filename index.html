@@ -19,7 +19,7 @@
                             100: '#e6f0ff'
                         },
                         accent: {
-                            500: '#FACC15', // Amarillo brillante
+                            500: '#FACC15', 
                         }
                     }
                 }
@@ -27,10 +27,12 @@
         }
     </script>
     
-    <!-- React -->
+    <!-- Librerías Externas -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- HTML2PDF para generar el comprobante -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -38,20 +40,92 @@
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
         body { font-family: 'Inter', sans-serif; }
+        /* Ocultar el template del PDF en la vista normal */
+        #invoice-template { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
 
     <div id="root"></div>
 
+    <!-- Template Oculto para el PDF (Diseño de Factura) -->
+    <div id="invoice-template">
+        <div class="p-8 bg-white max-w-3xl mx-auto font-sans text-slate-800">
+            <!-- Header -->
+            <div class="flex justify-between items-center border-b-2 border-brand-600 pb-6 mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-brand-600 tracking-tight">LUMEN MAYOREO</h1>
+                    <p class="text-sm text-slate-500">Soluciones integrales de papelería</p>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-xl font-bold text-slate-700">COMPROBANTE DE COMPRA</h2>
+                    <p class="text-sm text-slate-500 mt-1">Orden #<span id="pdf-order-id" class="font-mono text-slate-900 font-bold"></span></p>
+                    <p class="text-sm text-slate-500" id="pdf-date"></p>
+                </div>
+            </div>
+
+            <!-- Info Cliente -->
+            <div class="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                    <h3 class="font-bold text-slate-700 mb-2 uppercase text-xs tracking-wider">Cliente</h3>
+                    <p id="pdf-name" class="font-medium"></p>
+                    <p id="pdf-email" class="text-sm text-slate-500"></p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-700 mb-2 uppercase text-xs tracking-wider">Envío a</h3>
+                    <p id="pdf-address" class="text-sm"></p>
+                </div>
+            </div>
+
+            <!-- Tabla Productos -->
+            <table class="w-full mb-8 border-collapse">
+                <thead>
+                    <tr class="bg-slate-100 text-slate-600 text-sm uppercase">
+                        <th class="py-3 px-4 text-left rounded-l-lg">Producto</th>
+                        <th class="py-3 px-4 text-center">Cant.</th>
+                        <th class="py-3 px-4 text-right">Precio Unit.</th>
+                        <th class="py-3 px-4 text-right rounded-r-lg">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="pdf-items" class="text-sm">
+                    <!-- Items inyectados por JS -->
+                </tbody>
+            </table>
+
+            <!-- Totales -->
+            <div class="flex justify-end mb-12">
+                <div class="w-64">
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-600">Subtotal:</span>
+                        <span id="pdf-subtotal" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span class="text-slate-600">Envío:</span>
+                        <span class="text-green-600 font-medium">Gratis</span>
+                    </div>
+                    <div class="flex justify-between py-4 text-lg font-bold text-brand-600">
+                        <span>Total:</span>
+                        <span id="pdf-total"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center border-t border-slate-200 pt-8 text-sm text-slate-500">
+                <p class="font-bold text-brand-600 mb-2">¡Gracias por tu preferencia!</p>
+                <p>Tu pedido será entregado en un lapso de 5 a 7 días hábiles.</p>
+                <p class="mt-4 text-xs">Si tienes dudas, contáctanos: ventas@lumen-mayoreo.mx | (55) 5555 5555</p>
+            </div>
+        </div>
+    </div>
+
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
         // --- CONFIGURACIÓN ---
-        // IMPORTANTE: Asegúrate de que esta URL corresponda a la última implementación de tu script
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCIZLtUorJsR0egSR8vYSjiwPMQ4alTNfSsu6WpeTsLEt-SUZSUVxC8Sn8YH984luGIQ/exec"; 
         const BASE_IMAGE_URL = "https://www.lumen.com.mx/"; 
-        const CACHE_KEY = 'lumen_products_cache_v3'; 
+        const CACHE_KEY = 'lumen_products_cache_v4'; 
         const CACHE_DURATION = 1000 * 60 * 60; 
 
         // --- ICONOS ---
@@ -77,6 +151,7 @@
         const Package = (p) => <IconBase {...p}><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></IconBase>;
         const Clock = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IconBase>;
         const Download = (p) => <IconBase {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></IconBase>;
+        const ShieldCheck = (p) => <IconBase {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></IconBase>;
 
         // --- DATOS DE RESPALDO (MOCK DATA) ---
         const MOCK_PRODUCTS = [
@@ -160,6 +235,10 @@
             
             const [quantity, setQuantity] = useState(1);
 
+            useEffect(() => {
+                setQuantity(1);
+            }, [product.id]);
+
             const randomProducts = useMemo(() => {
                 return products
                     .filter(p => p.id !== product.id)
@@ -206,7 +285,6 @@
                                 )}
                                 
                                 <div className="mt-auto flex flex-col sm:flex-row gap-4">
-                                    {/* Selector de Cantidad */}
                                     <div className="flex items-center border border-slate-300 rounded-lg">
                                         <button onClick={() => handleQuantityChange(-1)} className="px-4 py-3 hover:bg-slate-100 text-slate-600 rounded-l-lg transition-colors">-</button>
                                         <span className="px-4 font-bold text-slate-800 min-w-[3rem] text-center">{quantity}</span>
@@ -236,7 +314,6 @@
             );
         };
 
-        // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
             const [loading, setLoading] = useState(true);
@@ -256,12 +333,10 @@
             const [isProcessing, setIsProcessing] = useState(false);
             const [orderId, setOrderId] = useState('');
             
-            // Estados para el formulario de pago
             const [cardNum, setCardNum] = useState('');
             const [cardDate, setCardDate] = useState('');
             const [cardCvv, setCardCvv] = useState('');
 
-            // --- Lógica de Envío a Google Sheets (Backend) ---
             const submitOrderToSheets = async (orderData) => {
                 try {
                     await fetch(GOOGLE_SCRIPT_URL, {
@@ -279,7 +354,6 @@
                 }
             };
 
-            // Debounce para búsqueda
             useEffect(() => {
                 const delayDebounceFn = setTimeout(() => {
                     if (searchTerm.trim().length > 0) {
@@ -298,7 +372,6 @@
                 setSearchTerm(e.target.value);
             };
 
-            // Carga de Datos
             useEffect(() => {
                 const loadData = async () => {
                     setLoading(true);
@@ -459,16 +532,15 @@
                 return filtered;
             };
 
-            // Formatters para Tarjeta
             const handleCardChange = (e) => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 16); // Solo números, max 16
+                const v = e.target.value.replace(/\D/g, '').slice(0, 16); 
                 setCardNum(v);
             }
             
             const handleDateChange = (e) => {
-                let v = e.target.value.replace(/\D/g, '').slice(0, 4); // Solo números, max 4
+                let v = e.target.value.replace(/\D/g, '').slice(0, 4); 
                 if (v.length >= 2) {
-                    v = v.slice(0, 2) + '/' + v.slice(2); // Auto slash
+                    v = v.slice(0, 2) + '/' + v.slice(2); 
                 }
                 setCardDate(v);
             }
@@ -478,31 +550,54 @@
                 return () => clearInterval(timer);
             }, []);
 
-            const handleDownloadAndEmail = async () => {
-                // 1. Descargar Localmente
-                if (lastOrder) {
-                    let receiptText = `COMPROBANTE DE COMPRA - LUMEN MAYOREO\n\n`;
-                    receiptText += `Orden: ${orderId}\n`;
-                    receiptText += `Fecha: ${new Date().toLocaleDateString()}\n`;
-                    receiptText += `Cliente: ${shippingData.name}\n`;
-                    receiptText += `Email: ${shippingData.email}\n`;
-                    receiptText += `\nPRODUCTOS:\n`;
-                    lastOrder.items.forEach(item => {
-                        receiptText += `- ${item.name} x${item.quantity}  $${item.price.toFixed(2)}\n`;
-                    });
-                    receiptText += `\nTOTAL: $${lastOrder.total.toFixed(2)}\n`;
-                    receiptText += `\nGracias por su compra.`;
+            // --- FUNCIÓN PARA GENERAR PDF ---
+            const handleDownloadPDF = () => {
+                // Populate template
+                if (!lastOrder) return;
+                
+                document.getElementById('pdf-order-id').innerText = orderId;
+                document.getElementById('pdf-date').innerText = new Date().toLocaleDateString();
+                document.getElementById('pdf-name').innerText = shippingData.name;
+                document.getElementById('pdf-email').innerText = shippingData.email;
+                document.getElementById('pdf-address').innerText = shippingData.address + ', ' + shippingData.city + ', CP: ' + shippingData.cp;
+                document.getElementById('pdf-subtotal').innerText = '$' + lastOrder.total.toFixed(2);
+                document.getElementById('pdf-total').innerText = '$' + lastOrder.total.toFixed(2);
 
-                    const blob = new Blob([receiptText], { type: 'text/plain' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Recibo_Lumen_${orderId}.txt`;
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                }
+                const itemsContainer = document.getElementById('pdf-items');
+                itemsContainer.innerHTML = '';
+                lastOrder.items.forEach((item, index) => {
+                    const row = `
+                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-b border-slate-100">
+                            <td class="py-3 px-4">${item.name}</td>
+                            <td class="py-3 px-4 text-center">${item.quantity}</td>
+                            <td class="py-3 px-4 text-right">$${item.price.toFixed(2)}</td>
+                            <td class="py-3 px-4 text-right font-bold">$${(item.quantity * item.price).toFixed(2)}</td>
+                        </tr>
+                    `;
+                    itemsContainer.innerHTML += row;
+                });
 
-                // 2. Intentar Reenviar Correo
+                // Generate PDF
+                const element = document.getElementById('invoice-template');
+                // Temporarily ensure it's visible for rendering but off-screen or handled by lib
+                // html2pdf can handle hidden elements if we pass the element itself and modify styles temporarily
+                // But a safer way is to clone it, make visible fixed offscreen, then print.
+                // For simplicity with this lib:
+                element.style.display = 'block';
+                const opt = {
+                    margin: 0,
+                    filename: `Comprobante_Lumen_${orderId}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+                
+                html2pdf().set(opt).from(element).save().then(() => {
+                    element.style.display = 'none';
+                });
+            };
+
+            const handleResendEmail = async () => {
                 if (shippingData.email && lastOrder) {
                     const orderPayload = {
                         action: 'resend_email',
@@ -705,14 +800,10 @@
                             e.preventDefault(); 
                             setIsProcessing(true); 
                             
-                            // Generar ID de orden aleatorio
                             const randomId = 'LUM-' + Math.floor(1000 + Math.random() * 9000);
                             setOrderId(randomId);
-                            
-                            // Guardar para resumen visual
                             setLastOrder({ items: [...cart], total: cartTotal });
 
-                            // Preparar datos para Google Sheets
                             const orderPayload = {
                                 orderId: randomId,
                                 shipping: shippingData,
@@ -720,7 +811,6 @@
                                 total: cartTotal
                             };
 
-                            // Enviar datos
                             await submitOrderToSheets(orderPayload);
 
                             setTimeout(()=>{
@@ -794,8 +884,11 @@
                         </div>
                     </div>
                     <div className="flex flex-col gap-4 max-w-lg mx-auto">
-                        <Button onClick={handleDownloadAndEmail} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700">
-                            <Download size={20}/> Descargar y Reenviar Comprobante
+                        <Button onClick={handleDownloadPDF} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700">
+                            <Download size={20}/> Descargar Comprobante (PDF)
+                        </Button>
+                        <Button onClick={handleResendEmail} className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-500 text-white">
+                            <Mail size={20}/> Reenviar Correo
                         </Button>
                         <Button onClick={goHome} variant="outline" className="w-full">Volver a la Tienda</Button>
                     </div>
