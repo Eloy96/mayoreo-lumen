@@ -254,7 +254,6 @@
         };
 
         const StaticBanner = ({ imageUrl, link, onClick }) => {
-            // Manejo seguro de string: si viene "url1, url2", tomar solo "url1"
             const safeUrl = imageUrl ? imageUrl.split(',')[0].trim() : null;
             if (!safeUrl) return null;
 
@@ -277,7 +276,6 @@
 
             const handleQuantityChange = (delta) => setQuantity(prev => Math.max(1, prev + delta));
 
-            // Solo mostrar botón "Por si se te olvidó" si hay productos
             const showRelated = randomProducts.length > 0;
 
             return (
@@ -344,7 +342,6 @@
             );
         };
 
-        // --- APP PRINCIPAL ---
         function App() {
             const [view, setView] = useState('home');
             const [loading, setLoading] = useState(true);
@@ -408,21 +405,19 @@
 
             const handleSearchChange = (e) => setSearchTerm(e.target.value);
 
-            // MANEJO DE SEO DINÁMICO (UPDATED FOR CANONICAL)
+            // MANEJO DE SEO DINÁMICO
             useEffect(() => {
                 let pageTitle = 'Papelería Lumen Mayoreo | Envíos a todo México';
                 let pageDesc = 'Encuentra papelería de mayoreo, artículos de oficina, escolares, arte y computación. Envíos gratis desde $1,500.';
-                let canonicalUrl = window.location.href.split('#')[0]; // Default base
+                let canonicalUrl = window.location.href.split('#')[0]; 
 
                 if (view === 'product-detail' && selectedProduct) {
                     pageTitle = selectedProduct.metaTitle ? selectedProduct.metaTitle : `${selectedProduct.name} | Lumen Mayoreo`;
                     pageDesc = selectedProduct.metaDescription ? selectedProduct.metaDescription : `Compra ${selectedProduct.name}. ${selectedProduct.description}. Envío rápido.`;
                     
-                    // Lógica canónica desde Sheet o autogenerada
                     if (selectedProduct.canonical) {
                         canonicalUrl = selectedProduct.canonical;
                     } else {
-                         // Fallback automático si no hay en sheet
                          const catSlug = selectedProduct.category ? generateSlug(selectedProduct.category) : 'general';
                          canonicalUrl = `${window.location.origin}/#/categoria/${catSlug}/producto/${selectedProduct.slug}`;
                     }
@@ -444,7 +439,6 @@
                 }
                 metaDescTag.setAttribute("content", pageDesc);
 
-                // Inyección de Canonical
                 let linkCanonical = document.querySelector("link[rel='canonical']");
                 if (!linkCanonical) {
                     linkCanonical = document.createElement('link');
@@ -455,7 +449,7 @@
 
             }, [view, selectedProduct, activeCategory]);
 
-            // Carga de Datos (Ahora lee Productos + HomeConfig)
+            // Carga de Datos
             useEffect(() => {
                 const loadData = async (retryCount = 0) => {
                     setLoading(true);
@@ -505,7 +499,6 @@
                                 if (['specs', 'especificaciones'].includes(lowK)) newItem.specs = typeof val === 'string' ? val.split('|').map(s=>s.trim()) : [];
                                 if (['metatitle', 'meta_title'].includes(lowK)) newItem.metaTitle = val;
                                 if (['metadescription', 'meta_desc'].includes(lowK)) newItem.metaDescription = val;
-                                // Lectura de Canonical desde Sheet
                                 if (['canonical', 'canonico', 'url_canonica'].includes(lowK)) newItem.canonical = val;
                             });
                             if (!newItem.id) newItem.id = Math.random().toString(36).substr(2, 9);
@@ -652,10 +645,19 @@
 
             const getProductsBySkus = (skuString) => {
                 if (!skuString) return [];
-                // Separar por comas, limpiar espacios, convertir a string y minúsculas
                 const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase());
-                // Filtrar productos asegurando que p.sku existe y convirtiéndolo a string antes de comparar
-                return products.filter(p => p.sku && skus.includes(String(p.sku).toLowerCase()));
+                return products.filter(p => {
+                    if (!p.sku) return false;
+                    const pSku = String(p.sku).toLowerCase();
+                    // Match flexible: exact, "sku-17" vs "17", or "17" vs "sku-17"
+                    return skus.some(cSku => cSku === pSku || cSku === `sku-${pSku}` || cSku.replace('sku-', '') === pSku);
+                });
+            };
+
+            // Función de navegación explícita para detalle de producto
+            const onProductClick = (p) => {
+                const catSlug = p.category ? generateSlug(p.category) : 'general';
+                navigate(`/categoria/${catSlug}/producto/${p.slug}`);
             };
 
             if (loading) return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500"><div className="w-16 h-16 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mb-4"></div><p className="font-bold text-lg animate-pulse">Cargando catálogo Lumen...</p></div>;
@@ -683,7 +685,11 @@
                             }
                             if (type === 'carrusel') {
                                 const carouselProducts = getProductsBySkus(content);
-                                if (carouselProducts.length === 0) return null;
+                                if (carouselProducts.length === 0) {
+                                    // Log para debugging del usuario
+                                    console.warn(`Carrusel "${title}" oculto: No se encontraron productos con SKUs: ${content}`);
+                                    return null;
+                                }
                                 return <ProductCarousel key={idx} title={title} products={carouselProducts} onProductClick={onProductClick} onAddToCart={addToCart} />;
                             }
                             return null;
