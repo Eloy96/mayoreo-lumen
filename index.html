@@ -115,7 +115,7 @@
         // --- CONFIGURACIÓN ---
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCIZLtUorJsR0egSR8vYSjiwPMQ4alTNfSsu6WpeTsLEt-SUZSUVxC8Sn8YH984luGIQ/exec"; 
         const BASE_IMAGE_URL = "https://www.lumen.com.mx/"; 
-        const CACHE_KEY = 'lumen_products_cache_v5'; 
+        const CACHE_KEY = 'lumen_products_cache_v6'; // Incrementamos versión para limpiar caché viejo
         const CACHE_DURATION = 1000 * 60 * 60; 
 
         // --- ICONOS ---
@@ -239,7 +239,6 @@
                                 className="w-full h-full object-cover opacity-90" 
                                 onError={(e) => { 
                                     console.warn("Error cargando banner:", imgUrl);
-                                    // Intento de fallback a imagen segura si falla
                                     e.target.src = 'https://placehold.co/1200x400/0056b3/ffffff?text=Lumen+Mayoreo';
                                 }} 
                             />
@@ -257,7 +256,6 @@
         };
 
         const StaticBanner = ({ imageUrl, link, onClick }) => {
-            // Manejo seguro de string: si viene "url1, url2", tomar solo "url1"
             const safeUrl = imageUrl ? imageUrl.split(',')[0].trim() : null;
             if (!safeUrl) return null;
 
@@ -671,16 +669,18 @@
                 }
             };
 
+            // CORRECCIÓN INTELIGENTE DE SKU
+            // Esta función permite buscar 'SKU-17' o '17' indistintamente
             const getProductsBySkus = (skuString) => {
                 if (!skuString) return [];
-                // Separar por comas, limpiar espacios, convertir a string y minúsculas
-                const skus = skuString.toString().split(',').map(s => s.trim().toLowerCase().replace(/^sku-/, '')); // Limpia prefijo si existe
+                // 1. Limpiar la lista de búsqueda: separar por coma, quitar espacios, minúsculas, quitar "sku-"
+                const searchSkus = skuString.toString().split(',').map(s => s.trim().toLowerCase().replace(/^sku-/, ''));
                 
                 return products.filter(p => {
                     if (!p.sku) return false;
-                    // Comparar SKU limpio (sin prefijo si lo tiene) con la lista de búsqueda limpia
-                    const pSku = String(p.sku).toLowerCase().replace(/^sku-/, '');
-                    return skus.includes(pSku);
+                    // 2. Limpiar el SKU del producto también para comparar peras con peras
+                    const productSku = String(p.sku).toLowerCase().replace(/^sku-/, '');
+                    return searchSkus.includes(productSku);
                 });
             };
 
@@ -707,11 +707,26 @@
                             if (type === 'simple' || type === 'imagen') type = 'banner_simple';
 
                             if (type === 'banner_principal') {
-                                const slides = content ? content.split(',').map(s => s.trim()) : [];
+                                // CORRECCIÓN: Tomar la primera imagen si hay varias para el banner simple, o todas para el carrusel
+                                const slides = content ? content.split(',').map(s => {
+                                    // CORRECCIÓN: Detectar y arreglar links de Drive en la configuración
+                                    let url = s.trim();
+                                    const idMatch = url.match(/\/d\/(.+?)\//) || url.match(/[?&]id=([^&]+)/);
+                                    if (url.includes('drive.google.com') && idMatch) {
+                                         return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+                                    }
+                                    return url;
+                                }) : [];
                                 return <MainBannerCarousel key={idx} slides={slides} />;
                             }
                             if (type === 'banner_simple') {
-                                return <StaticBanner key={idx} imageUrl={content} link={link} onClick={() => link && (link.startsWith('/') ? navigate(link) : window.location.href = link)} />;
+                                // CORRECCIÓN: Igual limpieza para banner simple
+                                let safeUrl = content ? content.split(',')[0].trim() : null;
+                                if (safeUrl && safeUrl.includes('drive.google.com')) {
+                                     const idMatch = safeUrl.match(/\/d\/(.+?)\//) || safeUrl.match(/[?&]id=([^&]+)/);
+                                     if (idMatch) safeUrl = `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+                                }
+                                return <StaticBanner key={idx} imageUrl={safeUrl} link={link} onClick={() => link && (link.startsWith('/') ? navigate(link) : window.location.href = link)} />;
                             }
                             if (type === 'carrusel') {
                                 const carouselProducts = getProductsBySkus(content);
